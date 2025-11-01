@@ -49,5 +49,5 @@ supabase gen types typescript --linked > src/types/database.types.ts
 - [x] Phase 1: Tables created (18/18) ✅
 - [x] Phase 2: Functions created (13/13) ✅
 - [x] Phase 3: Triggers created (43 triggers, 7 functions) ✅
-- [ ] Phase 4: Views created (0/4)
+- [x] Phase 4: Views created (6/6) ✅
 - [ ] Phase 5: RLS Policies created (0/~40)
