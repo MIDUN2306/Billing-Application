@@ -12,6 +12,8 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ProductsPage } from './pages/products/ProductsPage';
+import { CustomersPage } from './pages/customers/CustomersPage';
+import { CategoriesPage } from './pages/categories/CategoriesPage';
 
 function App() {
   const { initialize, initialized } = useAuthStore();
@@ -50,7 +52,8 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/pos" element={<div>POS Page - Coming Soon</div>} />
             <Route path="/products" element={<ProductsPage />} />
-            <Route path="/customers" element={<div>Customers Page - Coming Soon</div>} />
+            <Route path="/products/categories" element={<CategoriesPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
             <Route path="/purchases" element={<div>Purchases Page - Coming Soon</div>} />
             
             {/* Manager+ Routes */}
