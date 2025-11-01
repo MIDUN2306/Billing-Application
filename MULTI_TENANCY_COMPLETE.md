@@ -26,7 +26,7 @@ CREATE TABLE public.stores (
 
 #### 2. Added store_id to All Tables ✅
 
-**Tables with store_id (15 tables)**:
+**ALL Tables with store_id (18 tables)** ✅:
 - ✅ profiles (nullable - users can belong to multiple stores)
 - ✅ customers
 - ✅ suppliers
@@ -35,18 +35,16 @@ CREATE TABLE public.stores (
 - ✅ inventory
 - ✅ stock_movements
 - ✅ purchases
+- ✅ purchase_items (for query performance)
 - ✅ sales
+- ✅ sale_items (for query performance)
 - ✅ payments
 - ✅ expenses
 - ✅ daily_summaries
 - ✅ tea_boys
 - ✅ tea_boy_attendance
 - ✅ tea_boy_payments
-
-**Tables without store_id (4 tables)**:
-- ❌ purchase_items (inherits from purchases)
-- ❌ sale_items (inherits from sales)
-- ❌ audit_logs (system-wide logging)
+- ✅ audit_logs (nullable - for per-store audit trails)
 
 #### 3. Updated Unique Constraints ✅
 
@@ -102,11 +100,11 @@ This ensures:
 
 **Total Tables**: 19 (18 original + 1 stores table)
 
-**Multi-Tenant Tables**: 15 tables with store_id
-**Shared Tables**: 4 tables without store_id
+**Multi-Tenant Tables**: 18 tables with store_id (100% coverage!)
+**Shared Tables**: 0 tables (all data is store-scoped)
 
-**Foreign Keys to stores**: 15 relationships
-**Indexes on store_id**: 15 indexes
+**Foreign Keys to stores**: 18 relationships
+**Indexes on store_id**: 18 indexes
 
 ---
 
@@ -149,7 +147,7 @@ WHERE table_schema = 'public'
 ORDER BY table_name;
 ```
 
-**Result**: 15 tables with store_id column ✅
+**Result**: 18 tables with store_id column ✅ (100% coverage!)
 
 ---
 
