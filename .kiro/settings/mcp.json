@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "supabase-integration": {
+      "command": "node",
+      "args": ["./mcp-servers/supabase-server.js"],
+      "env": {
+        "SUPABASE_URL": "${VITE_SUPABASE_URL}",
+        "SUPABASE_KEY": "${VITE_SUPABASE_ANON_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": ["query_database", "update_inventory"]
+    }
+  }
+}
