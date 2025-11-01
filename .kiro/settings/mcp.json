@@ -16,7 +16,7 @@
         "npx",
         "-y",
         "@supabase/mcp-server-supabase@latest",
-        "--project-ref=nymudjieskxxotlyqayi"
+        "--project-ref=guynifjqydytpihazopl"
       ],
       "env": {
         "SUPABASE_ACCESS_TOKEN": "sb_publishable_W_rajOBfZiJxYo3VNxxAIw_0Zjg3Rps"
