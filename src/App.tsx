@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { ProductsPage } from './pages/products/ProductsPage';
 
 function App() {
   const { initialize, initialized } = useAuthStore();
@@ -48,7 +49,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/pos" element={<div>POS Page - Coming Soon</div>} />
-            <Route path="/products" element={<div>Products Page - Coming Soon</div>} />
+            <Route path="/products" element={<ProductsPage />} />
             <Route path="/customers" element={<div>Customers Page - Coming Soon</div>} />
             <Route path="/purchases" element={<div>Purchases Page - Coming Soon</div>} />
             
