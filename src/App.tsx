@@ -1,29 +1,93 @@
-import { useState } from 'react'
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import { useAuthStore } from './stores/authStore';
+import { useStoreStore } from './stores/storeStore';
+
+// Layout
+import { AppLayout } from './components/layout/AppLayout';
+import { ProtectedRoute } from './components/layout/ProtectedRoute';
+
+// Pages
+import { LoginPage } from './pages/auth/LoginPage';
+import { DashboardPage } from './pages/dashboard/DashboardPage';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const { initialize, initialized } = useAuthStore();
+  const { loadStores } = useStoreStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    if (initialized) {
+      loadStores();
+    }
+  }, [initialized, loadStores]);
+
+  if (!initialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-800 mx-auto"></div>
+          <p className="mt-4 text-secondary-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <h1 className="text-4xl font-display font-bold text-primary-800 mb-4">
-          Tea Boys Management System
-        </h1>
-        <p className="text-lg text-secondary-600 mb-8">
-          Multi-store POS & Inventory Management
-        </p>
-        <button
-          onClick={() => setCount((count) => count + 1)}
-          className="btn-primary"
-        >
-          Count is {count}
-        </button>
-        <p className="mt-4 text-sm text-secondary-500">
-          Phase 0 Setup Complete ✅
-        </p>
-      </div>
-    </div>
-  )
+    <BrowserRouter>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/login" element={<LoginPage />} />
+
+        {/* Protected Routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/pos" element={<div>POS Page - Coming Soon</div>} />
+            <Route path="/products" element={<div>Products Page - Coming Soon</div>} />
+            <Route path="/customers" element={<div>Customers Page - Coming Soon</div>} />
+            <Route path="/purchases" element={<div>Purchases Page - Coming Soon</div>} />
+            
+            {/* Manager+ Routes */}
+            <Route element={<ProtectedRoute requiredRole="manager" />}>
+              <Route path="/reports" element={<div>Reports Page - Coming Soon</div>} />
+              <Route path="/tea-boys" element={<div>Tea Boys Page - Coming Soon</div>} />
+            </Route>
+
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute requiredRole="admin" />}>
+              <Route path="/settings" element={<div>Settings Page - Coming Soon</div>} />
+            </Route>
+          </Route>
+        </Route>
+
+        {/* Catch all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      {/* Toast Notifications */}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1a1a1a',
+          },
+          success: {
+            iconTheme: {
+              primary: '#8b1a39',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
