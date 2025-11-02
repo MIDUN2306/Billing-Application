@@ -13,19 +13,21 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatDate(date: string | Date): string {
-  return new Intl.DateFormat('en-IN', {
+  const dateObj = new Date(date)
+  return dateObj.toLocaleDateString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  }).format(new Date(date))
+  })
 }
 
 export function formatDateTime(date: string | Date): string {
-  return new Intl.DateFormat('en-IN', {
+  const dateObj = new Date(date)
+  return dateObj.toLocaleString('en-IN', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  }).format(new Date(date))
+  })
 }

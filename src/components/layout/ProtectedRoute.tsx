@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { hasPermission, type Profile } from '../../lib/auth';
+import { hasPermission } from '../../lib/auth';
 
 interface ProtectedRouteProps {
   requiredRole?: 'admin' | 'manager' | 'staff';

@@ -1,25 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package } from 'lucide-react';
+import { Plus, Search, Trash2, Package, RefreshCw, Edit } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
-import { ProductForm } from './ProductForm';
+import { ProductFormSimplified } from './ProductFormSimplified';
+import { EditTemplateModal } from './EditTemplateModal';
+import { RefillProductModal } from './RefillProductModal';
 import toast from 'react-hot-toast';
 
 interface Product {
   id: string;
   name: string;
   sku: string | null;
-  barcode: string | null;
   category_name: string | null;
-  selling_price: number;
-  purchase_price: number;
+  category_id: string | null;
+  unit: string;
   mrp: number | null;
-  tax_rate: number | null;
-  current_quantity: number;
-  available_quantity: number;
-  min_stock_level: number | null;
+  quantity: number;
   stock_status: string;
-  is_active: boolean;
+  product_template_id: string | null;
+  is_template?: boolean;
+  has_ingredients?: boolean;
+  producible_quantity?: number;
 }
 
 export function ProductsPage() {
@@ -29,6 +30,8 @@ export function ProductsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<Product | null>(null);
+  const [refillProduct, setRefillProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     if (currentStore) {
@@ -41,14 +44,98 @@ export function ProductsPage() {
 
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('v_product_stock_status')
-        .select('*')
+      
+      // Load actual products
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          sku,
+          unit,
+          mrp,
+          quantity,
+          product_template_id,
+          category_id,
+          categories (
+            name
+          )
+        `)
         .eq('store_id', currentStore.id)
+        .eq('is_active', true)
         .order('name');
 
-      if (error) throw error;
-      setProducts(data || []);
+      if (productsError) throw productsError;
+      
+      // Load product templates (recipes)
+      const { data: templatesData, error: templatesError } = await supabase
+        .from('product_templates')
+        .select(`
+          id,
+          name,
+          sku,
+          unit,
+          mrp,
+          has_ingredients,
+          producible_quantity,
+          category_id,
+          categories (
+            name
+          )
+        `)
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .order('name');
+
+      if (templatesError) throw templatesError;
+      
+      // Transform products
+      const transformedProducts = (productsData || []).map((item: any) => ({
+        id: item.id,
+        name: item.name,
+        sku: item.sku,
+        category_name: item.categories?.name || null,
+        category_id: item.category_id,
+        unit: item.unit,
+        mrp: item.mrp,
+        quantity: item.quantity,
+        product_template_id: item.product_template_id,
+        stock_status: item.quantity === 0 ? 'out_of_stock' : item.quantity < 10 ? 'low_stock' : 'in_stock',
+        is_template: false,
+      }));
+      
+      // Find templates that don't have any products yet (need to be produced)
+      const usedTemplateIds = new Set(
+        transformedProducts
+          .filter(p => p.product_template_id)
+          .map(p => p.product_template_id)
+      );
+      
+      // Show templates without products as "Out of Stock" items that need production
+      const transformedTemplates = (templatesData || [])
+        .filter((item: any) => !usedTemplateIds.has(item.id))
+        .map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          sku: item.sku,
+          category_name: item.categories?.name || null,
+          category_id: item.category_id,
+          unit: item.unit,
+          mrp: item.mrp,
+          quantity: 0,
+          product_template_id: item.id,
+          stock_status: 'out_of_stock',
+          is_template: true,
+          has_ingredients: item.has_ingredients,
+          producible_quantity: item.producible_quantity,
+        }));
+      
+      // Combine products and templates, sort by name
+      const allProducts = [...transformedProducts, ...transformedTemplates].sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+      
+      setProducts(allProducts);
     } catch (error: any) {
       console.error('Error loading products:', error);
       toast.error('Failed to load products');
@@ -57,27 +144,46 @@ export function ProductsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const handleDelete = async (id: string, isTemplate: boolean = false) => {
+    // Show confirmation dialog
+    const itemType = isTemplate ? 'recipe template' : 'product';
+    const confirmMessage = `Are you sure you want to delete this ${itemType}?\n\nThis action cannot be undone.`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
 
     try {
+      const table = isTemplate ? 'product_templates' : 'products';
       const { error } = await supabase
-        .from('products')
+        .from(table)
         .delete()
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Product deleted successfully');
+      toast.success(`${isTemplate ? 'Recipe template' : 'Product'} deleted successfully`);
       loadProducts();
     } catch (error: any) {
-      console.error('Error deleting product:', error);
-      toast.error('Failed to delete product');
+      console.error('Error deleting:', error);
+      toast.error(`Failed to delete ${itemType}`);
     }
   };
 
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setShowForm(true);
+  };
+  
+  const handleEditTemplate = (product: Product) => {
+    setEditingTemplate(product);
+  };
+  
+  const handleProduce = (product: Product) => {
+    if (!product.is_template) {
+      toast.error('This product is not a template. Use "Refill" to add more stock.');
+      return;
+    }
+    setRefillProduct(product);
   };
 
   const handleFormClose = () => {
@@ -86,10 +192,101 @@ export function ProductsPage() {
     loadProducts();
   };
 
+  const handleTemplateEditClose = () => {
+    setEditingTemplate(null);
+    loadProducts();
+  };
+
+  const handleRefillClick = async (product: Product) => {
+    // If it's a template, we need to produce it first
+    if (product.is_template) {
+      toast.error('This is a recipe template. Use "Produce" to create products from this recipe.');
+      return;
+    }
+    
+    // Check if product has a template and ingredients
+    if (!product.product_template_id) {
+      // Simple product, no stock check needed
+      setRefillProduct(product);
+      return;
+    }
+
+    try {
+      // Check if product has ingredients
+      const { data: template, error: templateError } = await supabase
+        .from('product_templates')
+        .select('has_ingredients')
+        .eq('id', product.product_template_id)
+        .single();
+
+      if (templateError) throw templateError;
+
+      if (!template.has_ingredients) {
+        // Simple product, no stock check needed
+        setRefillProduct(product);
+        return;
+      }
+
+      // Check ingredient stock levels
+      const { data: ingredients, error: ingredientsError } = await supabase
+        .from('v_product_ingredient_details')
+        .select('raw_material_name, available_stock, unit')
+        .eq('product_template_id', product.product_template_id)
+        .eq('store_id', currentStore!.id);
+
+      if (ingredientsError) throw ingredientsError;
+
+      // Check for zero stock ingredients
+      const zeroStockIngredients = (ingredients || []).filter(
+        (ing: any) => ing.available_stock === 0
+      );
+
+      if (zeroStockIngredients.length > 0) {
+        const ingredientNames = zeroStockIngredients
+          .map((ing: any) => ing.raw_material_name)
+          .join(', ');
+        
+        toast.error(
+          `Cannot refill: Out of stock for ${ingredientNames}. Please add raw materials first.`,
+          { duration: 5000 }
+        );
+        return;
+      }
+
+      // Check for critically low stock (less than recipe needs)
+      const lowStockIngredients = (ingredients || []).filter(
+        (ing: any) => ing.available_stock > 0 && ing.available_stock < ing.quantity_needed
+      );
+
+      if (lowStockIngredients.length > 0) {
+        const ingredientNames = lowStockIngredients
+          .map((ing: any) => `${ing.raw_material_name} (${ing.available_stock} ${ing.unit})`)
+          .join(', ');
+        
+        toast(
+          `⚠️ Low stock: ${ingredientNames}. You may not be able to produce the full recipe.`,
+          { 
+            duration: 5000,
+            icon: '⚠️',
+            style: {
+              background: '#FEF3C7',
+              color: '#92400E',
+            }
+          }
+        );
+      }
+
+      // Open the refill modal
+      setRefillProduct(product);
+    } catch (error) {
+      console.error('Error checking stock:', error);
+      toast.error('Failed to check ingredient stock');
+    }
+  };
+
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.sku?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.barcode?.toLowerCase().includes(searchQuery.toLowerCase())
+    product.sku?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getStockStatusColor = (status: string) => {
@@ -101,7 +298,8 @@ export function ProductsPage() {
     }
   };
 
-  const getStockStatusLabel = (status: string) => {
+  const getStockStatusLabel = (status: string, isTemplate: boolean = false) => {
+    if (isTemplate) return 'Recipe';
     return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
@@ -116,14 +314,14 @@ export function ProductsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-secondary-900">Products</h1>
           <p className="text-secondary-600 mt-1">Manage your product inventory</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center gap-2"
+          className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
         >
           <Plus className="w-5 h-5" />
           Add Product
@@ -136,7 +334,7 @@ export function ProductsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-secondary-400" />
           <input
             type="text"
-            placeholder="Search products by name, SKU, or barcode..."
+            placeholder="Search products by name or SKU..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -144,110 +342,134 @@ export function ProductsPage() {
         </div>
       </div>
 
-      {/* Products Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  SKU
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Stock
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <Package className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
-                    <p className="text-secondary-500">No products found</p>
-                  </td>
-                </tr>
-              ) : (
-                filteredProducts.map((product) => (
-                  <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-secondary-900">{product.name}</div>
-                      {product.barcode && (
-                        <div className="text-sm text-secondary-500">{product.barcode}</div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-secondary-600">
-                      {product.category_name || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-secondary-600">
-                      {product.sku || '-'}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="font-medium text-secondary-900">
-                        ₹{product.selling_price.toFixed(2)}
-                      </div>
-                      <div className="text-sm text-secondary-500">
-                        Cost: ₹{product.purchase_price.toFixed(2)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="font-medium text-secondary-900">
-                        {product.available_quantity}
-                      </div>
-                      {product.min_stock_level && (
-                        <div className="text-sm text-secondary-500">
-                          Min: {product.min_stock_level}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStockStatusColor(product.stock_status)}`}>
-                        {getStockStatusLabel(product.stock_status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleEdit(product)}
-                          className="p-2 text-secondary-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* Products Grid - Card Layout like POS */}
+      {filteredProducts.length === 0 ? (
+        <div className="card py-16">
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 mb-4">
+              <Package className="w-10 h-10 text-secondary-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-secondary-900 mb-2">No products found</h3>
+            <p className="text-secondary-500 text-sm">Add your first product to get started</p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {filteredProducts.map((product) => (
+            <div
+              key={product.id}
+              className="bg-white rounded-lg border-2 border-gray-200 hover:border-primary-500 hover:shadow-lg transition-all duration-200 p-4 relative"
+            >
+              {/* Product Name */}
+              <h3 className="font-semibold text-base mb-2 line-clamp-2">
+                {product.name}
+              </h3>
 
-      {/* Product Form Modal */}
+              {/* SKU */}
+              {product.sku && (
+                <p className="text-sm font-medium text-gray-600 mb-3">SKU: {product.sku}</p>
+              )}
+
+              {/* Price and Stock */}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Price</p>
+                  <span className="text-xl font-bold text-primary-600">
+                    {product.mrp ? `₹${product.mrp.toFixed(2)}` : '-'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 mb-1">Stock</p>
+                  <span className={`text-lg font-bold ${
+                    product.quantity === 0 
+                      ? 'text-red-600' 
+                      : product.quantity < 10 
+                        ? 'text-yellow-600' 
+                        : 'text-green-600'
+                  }`}>
+                    {product.quantity} {product.unit}
+                  </span>
+                </div>
+              </div>
+
+              {/* Unit */}
+              <div className="mb-3">
+                <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-700">
+                  {product.unit}
+                </span>
+              </div>
+
+              {/* Status Badge - Always show */}
+              <div className="mb-3">
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockStatusColor(product.stock_status)}`}>
+                  {getStockStatusLabel(product.stock_status)}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-3 border-t border-gray-200">
+                <button
+                  onClick={() => product.is_template ? handleEditTemplate(product) : handleEdit(product)}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                  title="Edit Product"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => product.is_template ? handleProduce(product) : handleRefillClick(product)}
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
+                  title={product.quantity === 0 ? 'Produce/Add Stock' : 'Add More Stock'}
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  {product.quantity === 0 ? 'Produce' : 'Refill'}
+                </button>
+                <button
+                  onClick={() => handleDelete(product.id, product.is_template)}
+                  className="flex items-center justify-center px-2 py-2 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Product Modal */}
       {showForm && (
-        <ProductForm
+        <ProductFormSimplified
           product={editingProduct}
           onClose={handleFormClose}
+        />
+      )}
+
+      {/* Edit Template Modal */}
+      {editingTemplate && (
+        <EditTemplateModal
+          template={{
+            id: editingTemplate.id,
+            name: editingTemplate.name,
+            sku: editingTemplate.sku,
+            unit: editingTemplate.unit,
+            mrp: editingTemplate.mrp,
+            producible_quantity: editingTemplate.producible_quantity || 0,
+          }}
+          onClose={handleTemplateEditClose}
+          onSuccess={handleTemplateEditClose}
+        />
+      )}
+
+      {/* Refill Product Modal */}
+      {refillProduct && (
+        <RefillProductModal
+          product={refillProduct}
+          onClose={() => setRefillProduct(null)}
+          onSuccess={() => {
+            setRefillProduct(null);
+            loadProducts();
+          }}
         />
       )}
     </div>

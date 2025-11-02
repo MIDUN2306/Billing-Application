@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Supabase Connection</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-top: 0; }
+    button {
+      padding: 12px 24px;
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 10px 10px 0;
+    }
+    button:hover { background: #059669; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .success { background: #d1fae5; color: #065f46; }
+    .error { background: #fee2e2; color: #991b1b; }
+    .info { background: #dbeafe; color: #1e40af; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 Supabase Connection Test</h1>
+    <p>Click the buttons below to test your Supabase connection and setup.</p>
+    
+    <button onclick="testConnection()">1. Test Connection</button>
+    <button onclick="checkStore()">2. Check Store</button>
+    <button onclick="checkUsers()">3. Check Users</button>
+    <button onclick="createAccount()">4. Create Admin Account</button>
+    
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://guynifjqydytpihazopl.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1eW5pZmpxeWR5dHBpaGF6b3BsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MTQxODIsImV4cCI6MjA3NzQ5MDE4Mn0.Euvdu-5pKuFhRmAn3f4uwRFE4lS9jcBbbeZWpBK-_IA';
+    const STORE_ID = 'fcb79a3d-ea99-4d4d-84ad-03dcc01718b2';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const resultDiv = document.getElementById('result');
+    
+    function showResult(message, type = 'info') {
+      resultDiv.className = `result ${type}`;
+      resultDiv.textContent = message;
+    }
+    
+    async function testConnection() {
+      showResult('Testing connection...', 'info');
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('count')
+          .limit(1);
+        
+        if (error) throw error;
+        
+        showResult('✅ SUCCESS!\n\nSupabase connection is working!\nYou can proceed to create an admin account.', 'success');
+      } catch (error) {
+        showResult(`❌ ERROR!\n\n${error.message}\n\nCheck your .env file and make sure:\n- VITE_SUPABASE_URL is correct\n- VITE_SUPABASE_ANON_KEY is correct\n- Dev server is running (npm run dev)`, 'error');
+      }
+    }
+    
+    async function checkStore() {
+      showResult('Checking store...', 'info');
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('*')
+          .eq('id', STORE_ID)
+          .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+          showResult(`✅ STORE FOUND!\n\nStore Name: ${data.name}\nStore ID: ${data.id}\nAddress: ${data.address}\nPhone: ${data.phone}\nActive: ${data.is_active}`, 'success');
+        } else {
+          showResult('❌ Store not found!\n\nYou need to create a store first.', 'error');
+        }
+      } catch (error) {
+        showResult(`❌ ERROR!\n\n${error.message}`, 'error');
+      }
+    }
+    
+    async function checkUsers() {
+      showResult('Checking users...', 'info');
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, role, is_active')
+          .limit(10);
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          const userList = data.map(u => 
+            `- ${u.full_name} (${u.role}) - ${u.is_active ? 'Active' : 'Inactive'}`
+          ).join('\n');
+          showResult(`✅ USERS FOUND!\n\nTotal Users: ${data.length}\n\n${userList}`, 'success');
+        } else {
+          showResult('ℹ️ NO USERS FOUND\n\nNo users exist yet. Click "Create Admin Account" to create one.', 'info');
+        }
+      } catch (error) {
+        showResult(`❌ ERROR!\n\n${error.message}`, 'error');
+      }
+    }
+    
+    async function createAccount() {
+      const email = 'admin@teaboys.com';
+      const password = 'admin123';
+      const fullName = 'Admin User';
+      
+      showResult('Creating admin account...', 'info');
+      
+      try {
+        // Sign up the user
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+        
+        if (authError) throw authError;
+        
+        if (!authData.user) {
+          throw new Error('User creation failed - no user returned');
+        }
+        
+        showResult(`✅ ACCOUNT CREATED!\n\nUser ID: ${authData.user.id}\nEmail: ${email}\nPassword: ${password}\n\nWaiting for profile creation...`, 'success');
+        
+        // Wait for trigger to create profile
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Update profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            role: 'admin',
+            store_id: STORE_ID,
+            is_active: true
+          })
+          .eq('id', authData.user.id);
+        
+        if (profileError) {
+          showResult(`⚠️ ACCOUNT CREATED BUT PROFILE UPDATE FAILED!\n\nUser ID: ${authData.user.id}\nEmail: ${email}\nPassword: ${password}\n\nError: ${profileError.message}\n\nYou may need to manually update the profile in Supabase Dashboard.`, 'error');
+        } else {
+          showResult(`✅ SUCCESS!\n\nAdmin account created and configured!\n\nEmail: ${email}\nPassword: ${password}\nRole: admin\nStore: Tea Boys Main Store\n\nYou can now login at http://localhost:5174`, 'success');
+        }
+      } catch (error) {
+        if (error.message.includes('already registered')) {
+          showResult(`ℹ️ ACCOUNT ALREADY EXISTS\n\nEmail: ${email}\n\nTry logging in at http://localhost:5174\n\nIf login fails, the profile might be missing. Check "3. Check Users" to verify.`, 'info');
+        } else {
+          showResult(`❌ ERROR!\n\n${error.message}\n\nPossible causes:\n- Email confirmation is enabled (disable in Supabase Dashboard)\n- Network issue\n- Invalid credentials`, 'error');
+        }
+      }
+    }
+  </script>
+</body>
+</html>

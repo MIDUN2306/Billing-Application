@@ -19,3 +19,74 @@ export type Database = {
 export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row']
 export type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert']
 export type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update']
+
+// Product Name Types
+export interface ProductName {
+  id: string;
+  name: string;
+  store_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Product Template Types
+export interface ProductTemplate {
+  id: string;
+  name: string;
+  product_name_id: string | null;
+  sku: string | null;
+  category_id: string | null;
+  unit: string;
+  mrp: number | null;
+  has_ingredients: boolean; // TRUE for recipe-based, FALSE for purchased products
+  producible_quantity: number | null; // How many units can be made with the recipe
+  store_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductTemplateWithDetails extends ProductTemplate {
+  product_name: string | null;
+  category_name: string | null;
+  ingredient_count: number;
+}
+
+export interface ProductIngredient {
+  id: string;
+  product_template_id: string;
+  raw_material_id: string;
+  quantity_needed: number;
+  unit: string;
+  store_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductIngredientWithDetails extends ProductIngredient {
+  raw_material_name: string;
+  available_stock: number;
+  stock_unit: string;
+}
+
+export interface RawMaterialStock {
+  id: string;
+  raw_material_id: string;
+  store_id: string;
+  unit: string;
+  quantity: number;
+  purchase_price: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RawMaterial {
+  id: string;
+  name: string;
+  store_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}

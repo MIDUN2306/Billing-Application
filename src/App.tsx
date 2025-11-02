@@ -11,9 +11,14 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { POSPage } from './pages/pos/POSPage';
+import { SalesPage } from './pages/sales/SalesPage';
+import { PurchasesPage } from './pages/purchases/PurchasesPage';
+import { ExpensesPage } from './pages/expenses/ExpensesPage';
 import { ProductsPage } from './pages/products/ProductsPage';
 import { CustomersPage } from './pages/customers/CustomersPage';
 import { CategoriesPage } from './pages/categories/CategoriesPage';
+import { RawMaterialsPage } from './pages/raw-materials/RawMaterialsPage';
 
 function App() {
   const { initialize, initialized } = useAuthStore();
@@ -50,11 +55,14 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
-            <Route path="/pos" element={<div>POS Page - Coming Soon</div>} />
+            <Route path="/pos" element={<POSPage />} />
+            <Route path="/sales" element={<SalesPage />} />
+            <Route path="/purchases" element={<PurchasesPage />} />
+            <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/categories" element={<CategoriesPage />} />
+            <Route path="/raw-materials" element={<RawMaterialsPage />} />
             <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/purchases" element={<div>Purchases Page - Coming Soon</div>} />
             
             {/* Manager+ Routes */}
             <Route element={<ProtectedRoute requiredRole="manager" />}>
