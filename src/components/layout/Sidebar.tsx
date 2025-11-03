@@ -6,7 +6,8 @@ import {
   Milk,
   X,
   Receipt,
-  Wallet
+  Wallet,
+  Shield
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Products', href: '/products', icon: Package, roles: ['staff', 'manager', 'admin'] },
   { name: 'Raw Materials', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
   { name: 'Petty Cash', href: '/petty-cash', icon: Wallet, roles: ['staff', 'manager', 'admin'] },
+  { name: 'Admin Panel', href: '/admin', icon: Shield, roles: ['admin'] },
 ];
 
 interface SidebarProps {

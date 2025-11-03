@@ -21,6 +21,7 @@ import { PettyCashPage } from './pages/petty-cash/PettyCashPage';
 import { ProductsPage } from './pages/products/ProductsPage';
 import { CategoriesPage } from './pages/categories/CategoriesPage';
 import { RawMaterialsPage } from './pages/raw-materials/RawMaterialsPage';
+import { AdminPage } from './pages/admin/AdminPage';
 
 function App() {
   const { initialize, initialized } = useAuthStore();
@@ -76,6 +77,7 @@ function App() {
 
             {/* Admin Routes */}
             <Route element={<ProtectedRoute requiredRole="admin" />}>
+              <Route path="/admin" element={<AdminPage />} />
               <Route path="/settings" element={<div>Settings Page - Coming Soon</div>} />
             </Route>
           </Route>
