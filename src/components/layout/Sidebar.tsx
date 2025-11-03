@@ -9,13 +9,15 @@ import {
   Settings,
   Coffee,
   Milk,
-  X
+  X,
+  Receipt
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['staff', 'manager', 'admin'] },
   { name: 'POS', href: '/pos', icon: ShoppingCart, roles: ['staff', 'manager', 'admin'] },
+  { name: 'Sales History', href: '/sales/history', icon: Receipt, roles: ['staff', 'manager', 'admin'] },
   { name: 'Products', href: '/products', icon: Package, roles: ['staff', 'manager', 'admin'] },
   { name: 'Raw Materials', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
   { name: 'Customers', href: '/customers', icon: Users, roles: ['staff', 'manager', 'admin'] },

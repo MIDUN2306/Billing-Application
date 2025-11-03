@@ -61,7 +61,7 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
       if (templateError) throw templateError;
 
       setHasIngredients(template.has_ingredients || false);
-      setProducibleQuantity(template.producible_quantity);
+      setProducibleQuantity(template.producible_quantity ? parseFloat(template.producible_quantity) : null);
 
       // If has ingredients, load them
       if (template.has_ingredients) {
@@ -84,8 +84,9 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
         setIngredients(ingredientsList);
         
         // Auto-populate quantity with recipe yield
-        if (template.producible_quantity) {
-          setQuantityToAdd(template.producible_quantity.toString());
+        const yieldQty = template.producible_quantity ? parseFloat(template.producible_quantity) : null;
+        if (yieldQty && yieldQty > 0) {
+          setQuantityToAdd(yieldQty.toString());
         }
       }
     } catch (error) {

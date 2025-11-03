@@ -1,32 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package, List } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Edit, Trash2, Package, List, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { ProductTemplateForm } from './ProductTemplateForm';
 import { ManageIngredientsModal } from './ManageIngredientsModal';
 import { ProductTemplateWithDetails } from '../../types/database.types';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 
 export function ProductTemplatesPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [templates, setTemplates] = useState<ProductTemplateWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ProductTemplateWithDetails | null>(null);
   const [managingIngredientsFor, setManagingIngredientsFor] = useState<ProductTemplateWithDetails | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadTemplates();
-    }
-  }, [currentStore]);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('v_product_templates_with_ingredients')
         .select('*')
@@ -35,12 +36,51 @@ export function ProductTemplatesPage() {
 
       if (error) throw error;
       setTemplates(data || []);
+      
+      if (isRefresh) {
+        toast.success('Templates refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading templates:', error);
       toast.error('Failed to load product templates');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore]);
+
+  // Load templates when component mounts or when navigating back to this page
+  useEffect(() => {
+    if (currentStore) {
+      loadTemplates();
+    }
+  }, [currentStore, location.pathname, loadTemplates]);
+
+  // Reload data when window/tab becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadTemplates();
+      }
+    };
+
+    const handleFocus = () => {
+      if (currentStore) {
+        loadTemplates();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadTemplates]);
+
+  const handleRefresh = () => {
+    loadTemplates(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -97,18 +137,29 @@ export function ProductTemplatesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-secondary-900">Product Templates</h1>
           <p className="text-secondary-600 mt-1">Manage product recipes and ingredients</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Template
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh templates"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            Add Template
+          </button>
+        </div>
       </div>
 
       {/* Search */}

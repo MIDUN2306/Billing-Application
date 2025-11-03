@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Package, RefreshCw, Edit } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Plus, Search, Trash2, Package, RefreshCw, Edit, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { ProductFormSimplified } from './ProductFormSimplified';
-import { EditTemplateModal } from './EditTemplateModal';
+import { EditTemplateModal} from './EditTemplateModal';
 import { RefillProductModal } from './RefillProductModal';
 import toast from 'react-hot-toast';
 
@@ -32,18 +32,26 @@ export function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<Product | null>(null);
   const [refillProduct, setRefillProduct] = useState<Product | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadProducts();
-    }
-  }, [currentStore]);
+  const loadProducts = useCallback(async (isRefresh = false) => {
+    if (!currentStore?.id) return;
 
-  const loadProducts = async () => {
-    if (!currentStore) return;
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) return;
+
+    loadingRef.current = true;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      const storeId = currentStore.id;
       
       // Load actual products
       const { data: productsData, error: productsError } = await supabase
@@ -61,7 +69,7 @@ export function ProductsPage() {
             name
           )
         `)
-        .eq('store_id', currentStore.id)
+        .eq('store_id', storeId)
         .eq('is_active', true)
         .order('name');
 
@@ -83,7 +91,7 @@ export function ProductsPage() {
             name
           )
         `)
-        .eq('store_id', currentStore.id)
+        .eq('store_id', storeId)
         .eq('is_active', true)
         .order('name');
 
@@ -136,12 +144,63 @@ export function ProductsPage() {
       );
       
       setProducts(allProducts);
+      
+      if (isRefresh) {
+        toast.success('Products refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading products:', error);
       toast.error('Failed to load products');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      loadingRef.current = false;
     }
+  }, [currentStore?.id]);
+
+  // Load products when component mounts
+  useEffect(() => {
+    isMountedRef.current = true;
+    loadingRef.current = false;
+    
+    if (currentStore?.id) {
+      loadProducts();
+    }
+
+    return () => {
+      isMountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id]);
+
+  // Reload data when window/tab becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore?.id && isMountedRef.current) {
+        loadingRef.current = false;
+        loadProducts();
+      }
+    };
+
+    const handleFocus = () => {
+      if (currentStore?.id && isMountedRef.current) {
+        loadingRef.current = false;
+        loadProducts();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id]);
+
+  const handleRefresh = () => {
+    loadProducts(true);
   };
 
   const handleDelete = async (id: string, isTemplate: boolean = false) => {
@@ -178,12 +237,108 @@ export function ProductsPage() {
     setEditingTemplate(product);
   };
   
-  const handleProduce = (product: Product) => {
+  const handleProduce = async (product: Product) => {
     if (!product.is_template) {
       toast.error('This product is not a template. Use "Refill" to add more stock.');
       return;
     }
-    setRefillProduct(product);
+
+    // Check if a product already exists for this template
+    const { data: existingProduct, error: checkError } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        sku,
+        unit,
+        mrp,
+        quantity,
+        product_template_id,
+        category_id,
+        categories (
+          name
+        )
+      `)
+      .eq('product_template_id', product.id)
+      .eq('store_id', currentStore!.id)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking for existing product:', checkError);
+      toast.error('Failed to check product status');
+      return;
+    }
+
+    if (existingProduct) {
+      // Product exists, open refill modal with the actual product
+      const productData: Product = {
+        id: existingProduct.id,
+        name: existingProduct.name,
+        sku: existingProduct.sku,
+        category_name: (existingProduct.categories as any)?.name || null,
+        category_id: existingProduct.category_id,
+        unit: existingProduct.unit,
+        mrp: existingProduct.mrp,
+        quantity: existingProduct.quantity,
+        product_template_id: existingProduct.product_template_id,
+        stock_status: existingProduct.quantity === 0 ? 'out_of_stock' : existingProduct.quantity < 10 ? 'low_stock' : 'in_stock',
+        is_template: false,
+      };
+      setRefillProduct(productData);
+    } else {
+      // No product exists yet, create one first
+      try {
+        const { data: newProduct, error: createError } = await supabase
+          .from('products')
+          .insert({
+            store_id: currentStore!.id,
+            name: product.name,
+            sku: product.sku,
+            unit: product.unit,
+            mrp: product.mrp,
+            quantity: 0,
+            product_template_id: product.id,
+            category_id: product.category_id,
+          })
+          .select(`
+            id,
+            name,
+            sku,
+            unit,
+            mrp,
+            quantity,
+            product_template_id,
+            category_id,
+            categories (
+              name
+            )
+          `)
+          .single();
+
+        if (createError) throw createError;
+
+        toast.success(`Product "${product.name}" created. Now you can produce it.`);
+        
+        // Open refill modal with the newly created product
+        const productData: Product = {
+          id: newProduct.id,
+          name: newProduct.name,
+          sku: newProduct.sku,
+          category_name: (newProduct.categories as any)?.name || null,
+          category_id: newProduct.category_id,
+          unit: newProduct.unit,
+          mrp: newProduct.mrp,
+          quantity: newProduct.quantity,
+          product_template_id: newProduct.product_template_id,
+          stock_status: 'out_of_stock',
+          is_template: false,
+        };
+        setRefillProduct(productData);
+      } catch (error: any) {
+        console.error('Error creating product:', error);
+        toast.error('Failed to create product from template');
+      }
+    }
   };
 
   const handleFormClose = () => {
@@ -319,13 +474,24 @@ export function ProductsPage() {
           <h1 className="text-2xl font-display font-bold text-secondary-900">Products</h1>
           <p className="text-secondary-600 mt-1">Manage your product inventory</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
-        >
-          <Plus className="w-5 h-5" />
-          Add Product
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh products"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            Add Product
+          </button>
+        </div>
       </div>
 
       {/* Search */}

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
-import { TrendingUp, TrendingDown, Users, Package, AlertCircle, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Package, AlertCircle, DollarSign, RotateCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 
 interface DashboardStats {
   today_sales: number;
@@ -16,31 +17,65 @@ interface DashboardStats {
 
 export function DashboardPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadDashboardStats();
-    }
-  }, [currentStore]);
-
-  const loadDashboardStats = async () => {
+  const loadDashboardStats = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .rpc('get_dashboard_stats', { p_store_id: currentStore.id });
 
       if (error) throw error;
       setStats(data);
+      
+      if (isRefresh) {
+        toast.success('Dashboard refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading dashboard stats:', error);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore]);
+
+  useEffect(() => {
+    if (currentStore) {
+      loadDashboardStats();
+    }
+  }, [currentStore, location.pathname, loadDashboardStats]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadDashboardStats();
+      }
+    };
+    const handleFocus = () => {
+      if (currentStore) {
+        loadDashboardStats();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadDashboardStats]);
+
+  const handleRefresh = () => {
+    loadDashboardStats(true);
   };
 
   if (loading) {
@@ -54,9 +89,20 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-display font-bold text-secondary-900">Dashboard</h1>
-        <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-secondary-900">Dashboard</h1>
+          <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="btn-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
+          title="Refresh dashboard"
+        >
+          <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+          <span className="sm:inline">Refresh</span>
+        </button>
       </div>
 
       {/* Stats Grid */}

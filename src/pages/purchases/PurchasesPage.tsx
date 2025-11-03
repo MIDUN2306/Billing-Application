@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
-import { Search, Eye, Plus } from 'lucide-react';
+import { Search, Eye, Plus, RotateCw } from 'lucide-react';
 import { PurchaseDetailsModal } from './PurchaseDetailsModal';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { useLocation } from 'react-router-dom';
 
 interface Purchase {
   id: string;
@@ -19,6 +20,7 @@ interface Purchase {
 
 export function PurchasesPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,15 +30,14 @@ export function PurchasesPage() {
   const [showFormModal, setShowFormModal] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadPurchases();
+  const loadPurchases = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo]);
-
-  const loadPurchases = async () => {
-    setLoading(true);
     try {
       let query = supabase
         .from('purchases')
@@ -82,12 +83,46 @@ export function PurchasesPage() {
       }));
 
       setPurchases(formattedPurchases);
+      
+      if (isRefresh) {
+        toast.success('Purchases refreshed');
+      }
     } catch (error: any) {
       console.error('Load purchases error:', error);
       toast.error('Failed to load purchases');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (currentStore) {
+      loadPurchases();
+    }
+  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo, location.pathname, loadPurchases]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadPurchases();
+      }
+    };
+    const handleFocus = () => {
+      if (currentStore) {
+        loadPurchases();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadPurchases]);
+
+  const handleRefresh = () => {
+    loadPurchases(true);
   };
 
   const filteredPurchases = purchases.filter(purchase =>
@@ -120,18 +155,29 @@ export function PurchasesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Purchases</h1>
           <p className="text-secondary-600">Manage inventory purchases from suppliers</p>
         </div>
-        <button
-          onClick={() => setShowFormModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          New Purchase
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh purchases"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowFormModal(true)}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            New Purchase
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

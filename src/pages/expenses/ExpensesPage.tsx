@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
-import { Search, Plus, Eye, Trash2 } from 'lucide-react';
+import { Search, Plus, Eye, Trash2, RotateCw } from 'lucide-react';
 import { ExpenseFormModal } from './ExpenseFormModal';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { useLocation } from 'react-router-dom';
 
 interface Expense {
   id: string;
@@ -18,6 +19,7 @@ interface Expense {
 
 export function ExpensesPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,15 +29,14 @@ export function ExpensesPage() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadExpenses();
+  const loadExpenses = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }, [currentStore, categoryFilter, paymentFilter, dateFrom, dateTo]);
-
-  const loadExpenses = async () => {
-    setLoading(true);
     try {
       let query = supabase
         .from('expenses')
@@ -60,12 +61,46 @@ export function ExpensesPage() {
 
       if (error) throw error;
       setExpenses(data || []);
+      
+      if (isRefresh) {
+        toast.success('Expenses refreshed');
+      }
     } catch (error: any) {
       console.error('Load expenses error:', error);
       toast.error('Failed to load expenses');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore, categoryFilter, paymentFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (currentStore) {
+      loadExpenses();
+    }
+  }, [currentStore, categoryFilter, paymentFilter, dateFrom, dateTo, location.pathname, loadExpenses]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadExpenses();
+      }
+    };
+    const handleFocus = () => {
+      if (currentStore) {
+        loadExpenses();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadExpenses]);
+
+  const handleRefresh = () => {
+    loadExpenses(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -109,21 +144,32 @@ export function ExpensesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Expenses</h1>
           <p className="text-secondary-600">Track and manage business expenses</p>
         </div>
-        <button
-          onClick={() => {
-            setEditingExpense(null);
-            setShowFormModal(true);
-          }}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Expense
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh expenses"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => {
+              setEditingExpense(null);
+              setShowFormModal(true);
+            }}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            Add Expense
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

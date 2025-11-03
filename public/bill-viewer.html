@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Bill</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 { color: #8b1a39; margin-bottom: 1rem; }
+        .bill-info { text-align: left; margin: 1.5rem 0; }
+        .bill-info p { margin: 0.5rem 0; }
+        .btn {
+            background: #8b1a39;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .btn:hover { background: #6d1429; }
+        .loading { display: none; }
+        .loading.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 Your Bill</h1>
+        <div id="billInfo" class="bill-info"></div>
+        <p class="loading active" id="loading">Generating your PDF bill...</p>
+        <button id="downloadBtn" class="btn" style="display:none;">Download Again</button>
+        <p style="font-size: 0.875rem; color: #6b7280; margin-top: 1rem;">
+            🌱 Digital receipt - Save paper, Save trees
+        </p>
+    </div>
+
+    <script>
+        // Get bill data from URL hash
+        const hash = window.location.hash.substring(1);
+        let billData = null;
+
+        try {
+            if (hash.startsWith('BILL:')) {
+                const encoded = hash.substring(5);
+                const json = decodeURIComponent(escape(atob(encoded)));
+                billData = JSON.parse(json);
+                displayBillInfo();
+                // Auto-generate PDF after a short delay
+                setTimeout(() => {
+                    generatePDF(true);
+                }, 500);
+            } else {
+                document.getElementById('billInfo').innerHTML = '<p style="color: red;">Invalid bill data</p>';
+                document.getElementById('loading').classList.remove('active');
+            }
+        } catch (error) {
+            document.getElementById('billInfo').innerHTML = '<p style="color: red;">Failed to load bill</p>';
+            document.getElementById('loading').classList.remove('active');
+        }
+
+        function displayBillInfo() {
+            const info = document.getElementById('billInfo');
+            info.innerHTML = `
+                <p><strong>Invoice:</strong> ${billData.inv}</p>
+                <p><strong>Date:</strong> ${billData.dt}</p>
+                <p><strong>Store:</strong> ${billData.st}</p>
+                ${billData.cst ? `<p><strong>Customer:</strong> ${billData.cst}</p>` : ''}
+                <p><strong>Items:</strong> ${billData.itm.length}</p>
+                <p style="font-size: 1.25rem; color: #8b1a39; margin-top: 1rem;">
+                    <strong>Total: Rs${billData.tot.toFixed(2)}</strong>
+                </p>
+            `;
+        }
+
+        document.getElementById('downloadBtn').addEventListener('click', () => generatePDF(false));
+
+        function generatePDF(isAutoDownload = false) {
+            if (!billData) return;
+
+            const loading = document.getElementById('loading');
+            const btn = document.getElementById('downloadBtn');
+            
+            loading.classList.add('active');
+            btn.disabled = true;
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'mm',
+                    format: [80, 150]
+                });
+
+                let y = 10;
+                
+                // Store name
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text(billData.st, 40, y, { align: 'center' });
+                y += 10;
+
+                // Invoice and date
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Invoice: ${billData.inv}`, 5, y);
+                y += 5;
+                doc.text(`Date: ${billData.dt}`, 5, y);
+                y += 5;
+
+                if (billData.cst) {
+                    doc.text(`Customer: ${billData.cst}`, 5, y);
+                    y += 5;
+                }
+
+                // Line
+                y += 2;
+                doc.line(5, y, 75, y);
+                y += 5;
+
+                // Items
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'bold');
+                doc.text('ITEM', 5, y);
+                doc.text('QTY', 45, y, { align: 'center' });
+                doc.text('PRICE', 58, y, { align: 'right' });
+                doc.text('TOTAL', 75, y, { align: 'right' });
+                y += 4;
+
+                doc.setFont('helvetica', 'normal');
+                billData.itm.forEach(item => {
+                    const name = item.n.length > 15 ? item.n.substring(0, 15) + '...' : item.n;
+                    doc.text(name, 5, y);
+                    doc.text(item.q.toString(), 45, y, { align: 'center' });
+                    doc.text(`Rs${item.p.toFixed(2)}`, 58, y, { align: 'right' });
+                    doc.text(`Rs${(item.q * item.p).toFixed(2)}`, 75, y, { align: 'right' });
+                    y += 5;
+                });
+
+                // Line
+                y += 2;
+                doc.line(5, y, 75, y);
+                y += 5;
+
+                // Total
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text('TOTAL:', 5, y);
+                doc.text(`Rs${billData.tot.toFixed(2)}`, 75, y, { align: 'right' });
+                y += 6;
+
+                // Payment method
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'normal');
+                const paymentMethod = billData.pm || 'CASH';
+                doc.text(`Payment: ${paymentMethod.toUpperCase()}`, 40, y, { align: 'center' });
+                y += 8;
+
+                // Footer
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Thank you for your business!', 40, y, { align: 'center' });
+                y += 4;
+                doc.setFontSize(7);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Digital receipt - Save paper, Save trees', 40, y, { align: 'center' });
+
+                // Save
+                doc.save(`Bill_${billData.inv}.pdf`);
+
+                loading.classList.remove('active');
+                btn.style.display = 'block';
+                btn.disabled = false;
+                
+                if (isAutoDownload) {
+                    // Show success message
+                    const successMsg = document.createElement('p');
+                    successMsg.style.color = '#10b981';
+                    successMsg.style.fontWeight = 'bold';
+                    successMsg.style.marginTop = '1rem';
+                    successMsg.textContent = '✓ Your bill has been downloaded!';
+                    document.querySelector('.container').insertBefore(successMsg, btn);
+                }
+            } catch (error) {
+                alert('Failed to generate PDF: ' + error.message);
+                loading.classList.remove('active');
+                btn.style.display = 'block';
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

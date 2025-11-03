@@ -4,6 +4,8 @@ import { useStoreStore } from '../../stores/storeStore';
 import { useAuthStore } from '../../stores/authStore';
 import { X, CreditCard, Banknote, Smartphone } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { generateBillPDF } from '../../utils/billGenerator';
+import { QRCodeDisplay } from '../../components/QRCodeDisplay';
 
 interface PaymentModalProps {
   cart: any[];
@@ -24,6 +26,8 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'upi' | 'credit'>('cash');
   const [amountReceived, setAmountReceived] = useState(totals.total);
   const [processing, setProcessing] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [completedSaleData, setCompletedSaleData] = useState<any>(null);
 
   const change = paymentMethod === 'cash' ? Math.max(0, amountReceived - totals.total) : 0;
   const canComplete = paymentMethod === 'credit' || amountReceived >= totals.total;
@@ -47,13 +51,13 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
         store_id: currentStore!.id,
         invoice_number: invoiceNumber,
         customer_id: customer?.id || null,
-        sale_date: new Date().toISOString(),
+        sale_date: new Date().toISOString().split('T')[0],
         subtotal: totals.subtotal,
         discount_amount: totals.discount,
         tax_amount: totals.tax,
         total_amount: totals.total,
+        paid_amount: paymentMethod === 'credit' ? 0 : totals.total,
         payment_method: paymentMethod,
-        payment_status: paymentMethod === 'credit' ? 'pending' : 'paid',
         status: 'completed',
         created_by: profile!.id,
       };
@@ -68,14 +72,15 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
 
       // Create sale items
       const saleItems = cart.map(item => ({
+        store_id: currentStore!.id,
         sale_id: sale.id,
         product_id: item.id,
         quantity: item.quantity,
         unit_price: item.mrp,
-        discount_amount: item.discount,
+        discount_amount: item.discount || 0,
         tax_rate: 0,
         tax_amount: 0,
-        total_amount: (item.mrp * item.quantity - item.discount),
+        total_amount: (item.mrp * item.quantity - (item.discount || 0)),
       }));
 
       const { error: itemsError } = await supabase
@@ -84,17 +89,29 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
 
       if (itemsError) throw itemsError;
 
+      // Note: Stock deduction is handled automatically by the database trigger
+      // 'update_inventory_on_sale' which updates inventory and creates stock movements
+
       // Create payment record if not credit
       if (paymentMethod !== 'credit') {
+        // Generate payment number
+        const { data: paymentNumber, error: paymentNumError } = await supabase
+          .rpc('generate_payment_number', { p_store_id: currentStore!.id });
+
+        if (paymentNumError) {
+          console.error('Payment number generation error:', paymentNumError);
+          // Continue without payment number if generation fails
+        }
+
         const paymentData = {
           store_id: currentStore!.id,
-          payment_type: 'received',
-          reference_type: 'sale',
+          payment_number: paymentNumber || `PAY-${Date.now()}`,
+          payment_type: 'sale',
           reference_id: sale.id,
           customer_id: customer?.id || null,
           amount: totals.total,
           payment_method: paymentMethod,
-          payment_date: new Date().toISOString(),
+          payment_date: new Date().toISOString().split('T')[0],
           created_by: profile!.id,
         };
 
@@ -105,7 +122,37 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
         if (paymentError) throw paymentError;
       }
 
-      onSuccess();
+      toast.success('Sale completed successfully!');
+      
+      // Prepare bill data
+      const billData = {
+        invoiceNumber: sale.invoice_number,
+        date: new Date().toLocaleDateString('en-IN'),
+        total: totals.total,
+        storeName: currentStore!.name,
+        storeAddress: currentStore!.address || undefined,
+        storePhone: currentStore!.phone || undefined,
+        storeGST: currentStore!.gst_number || undefined,
+        customerName: customer?.name,
+        customerPhone: customer?.phone,
+        items: cart.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.mrp,
+          discount: item.discount || 0,
+          total: item.mrp * item.quantity - (item.discount || 0),
+        })),
+        subtotal: totals.subtotal,
+        discount: totals.discount,
+        tax: totals.tax,
+        paymentMethod,
+      };
+
+      // Store sale data for QR display (don't auto-download PDF)
+      setCompletedSaleData(billData);
+
+      // Show QR code
+      setShowQR(true);
     } catch (error: any) {
       console.error('Sale error:', error);
       toast.error(error.message || 'Failed to complete sale');
@@ -115,8 +162,9 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-bold">Payment</h2>
@@ -129,22 +177,43 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+          {/* Items List */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Items ({cart.length})</h3>
+            <div className="space-y-2 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+              {cart.map((item, index) => (
+                <div key={item.id} className={`flex items-center justify-between p-3 ${index !== cart.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                    <p className="text-xs text-gray-500">
+                      ₹{item.mrp.toFixed(2)} × {item.quantity}
+                      {item.discount > 0 && ` (Disc: -₹${item.discount.toFixed(2)})`}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    ₹{(item.mrp * item.quantity - item.discount).toFixed(2)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Order Summary */}
-          <div className="space-y-2">
+          <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Subtotal:</span>
-              <span>₹{totals.subtotal.toFixed(2)}</span>
+              <span className="font-medium">₹{totals.subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Discount:</span>
-              <span className="text-red-600">-₹{totals.discount.toFixed(2)}</span>
+              <span className="text-red-600 font-medium">-₹{totals.discount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Tax:</span>
-              <span>₹{totals.tax.toFixed(2)}</span>
+              <span className="font-medium">₹{totals.tax.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-lg font-bold pt-2 border-t">
+            <div className="flex justify-between text-xl font-bold pt-2 border-t-2 border-gray-300">
               <span>Total:</span>
               <span className="text-primary-600">₹{totals.total.toFixed(2)}</span>
             </div>
@@ -267,7 +336,30 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
             {processing ? 'Processing...' : 'Complete Sale'}
           </button>
         </div>
+        </div>
       </div>
-    </div>
+
+      {/* QR Code Display Modal - Rendered outside payment modal */}
+      {showQR && completedSaleData && (
+        <QRCodeDisplay
+          billData={{
+            invoiceNumber: completedSaleData.invoiceNumber,
+            date: completedSaleData.date,
+            total: completedSaleData.total,
+            storeName: completedSaleData.storeName,
+            items: completedSaleData.items,
+            customerName: completedSaleData.customerName,
+          }}
+          onClose={() => {
+            setShowQR(false);
+            onSuccess();
+          }}
+          onDownload={async () => {
+            await generateBillPDF(completedSaleData);
+            toast.success('Bill downloaded successfully!');
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Users } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Edit, Trash2, Users, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { CustomerForm } from './CustomerForm';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 
 interface Customer {
   id: string;
@@ -19,23 +20,23 @@ interface Customer {
 
 export function CustomersPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadCustomers();
-    }
-  }, [currentStore]);
-
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('customers')
         .select('*')
@@ -44,12 +45,46 @@ export function CustomersPage() {
 
       if (error) throw error;
       setCustomers(data || []);
+      
+      if (isRefresh) {
+        toast.success('Customers refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading customers:', error);
       toast.error('Failed to load customers');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore]);
+
+  useEffect(() => {
+    if (currentStore) {
+      loadCustomers();
+    }
+  }, [currentStore, location.pathname, loadCustomers]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadCustomers();
+      }
+    };
+    const handleFocus = () => {
+      if (currentStore) {
+        loadCustomers();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadCustomers]);
+
+  const handleRefresh = () => {
+    loadCustomers(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -98,18 +133,29 @@ export function CustomersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-secondary-900">Customers</h1>
           <p className="text-secondary-600 mt-1">Manage your customer database</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Customer
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh customers"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            Add Customer
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -183,18 +229,16 @@ export function CustomersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className={`text-sm font-medium ${
-                        customer.current_balance > 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
+                      <div className={`text-sm font-medium ${customer.current_balance > 0 ? 'text-red-600' : 'text-green-600'
+                        }`}>
                         ₹{customer.current_balance.toFixed(2)}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                        customer.is_active
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${customer.is_active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {customer.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>

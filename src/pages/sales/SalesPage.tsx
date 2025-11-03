@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
-import { Search, Eye, Printer } from 'lucide-react';
+import { Search, Eye, Printer, RotateCw } from 'lucide-react';
 import { SaleDetailsModal } from './SaleDetailsModal';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { useLocation } from 'react-router-dom';
 
 interface Sale {
   id: string;
@@ -19,6 +20,7 @@ interface Sale {
 
 export function SalesPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,15 +29,14 @@ export function SalesPage() {
   const [selectedSale, setSelectedSale] = useState<string | null>(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadSales();
+  const loadSales = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo]);
-
-  const loadSales = async () => {
-    setLoading(true);
     try {
       let query = supabase
         .from('sales')
@@ -84,12 +85,46 @@ export function SalesPage() {
       }));
 
       setSales(formattedSales);
+      
+      if (isRefresh) {
+        toast.success('Sales refreshed');
+      }
     } catch (error: any) {
       console.error('Load sales error:', error);
       toast.error('Failed to load sales');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo]);
+
+  useEffect(() => {
+    if (currentStore) {
+      loadSales();
+    }
+  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo, location.pathname, loadSales]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadSales();
+      }
+    };
+    const handleFocus = () => {
+      if (currentStore) {
+        loadSales();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadSales]);
+
+  const handleRefresh = () => {
+    loadSales(true);
   };
 
   const filteredSales = sales.filter(sale =>
@@ -122,11 +157,20 @@ export function SalesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-secondary-900">Sales</h1>
           <p className="text-secondary-600">View and manage all sales transactions</p>
         </div>
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="btn-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
+          title="Refresh sales"
+        >
+          <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+          <span className="sm:inline">Refresh</span>
+        </button>
       </div>
 
       {/* Stats */}

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, FolderOpen } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Edit, Trash2, FolderOpen, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { CategoryForm } from './CategoryForm';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 
 interface Category {
   id: string;
@@ -15,22 +16,22 @@ interface Category {
 
 export function CategoriesPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      loadCategories();
-    }
-  }, [currentStore]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -39,12 +40,46 @@ export function CategoriesPage() {
 
       if (error) throw error;
       setCategories(data || []);
+      
+      if (isRefresh) {
+        toast.success('Categories refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading categories:', error);
       toast.error('Failed to load categories');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, [currentStore]);
+
+  useEffect(() => {
+    if (currentStore) {
+      loadCategories();
+    }
+  }, [currentStore, location.pathname, loadCategories]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        loadCategories();
+      }
+    };
+    const handleFocus = () => {
+      if (currentStore) {
+        loadCategories();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, loadCategories]);
+
+  const handleRefresh = () => {
+    loadCategories(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -87,18 +122,29 @@ export function CategoriesPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-secondary-900">Categories</h1>
           <p className="text-secondary-600 mt-1">Organize your products into categories</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="w-5 h-5" />
-          Add Category
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh categories"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            Add Category
+          </button>
+        </div>
       </div>
 
       {/* Categories Grid */}

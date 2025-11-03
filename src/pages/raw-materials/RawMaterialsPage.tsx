@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Package, RefreshCw, History } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Edit, Trash2, Package, RefreshCw, History, RotateCw, Eye, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { RawMaterialStockForm } from './RawMaterialStockForm';
 import { RefillRawMaterialModal } from './RefillRawMaterialModal';
 import toast from 'react-hot-toast';
+import { useLocation } from 'react-router-dom';
 
 interface RawMaterialStock {
   id: string;
@@ -27,34 +28,42 @@ interface PurchaseLog {
   notes: string | null;
 }
 
+interface GroupedPurchaseLog {
+  raw_material_name: string;
+  unit: string;
+  total_quantity: number;
+  total_cost: number;
+  purchase_count: number;
+  latest_date: string;
+  purchases: PurchaseLog[];
+}
+
 type TabType = 'stock' | 'logs';
 
 export function RawMaterialsPage() {
   const { currentStore } = useStoreStore();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<TabType>('stock');
   const [stocks, setStocks] = useState<RawMaterialStock[]>([]);
   const [purchaseLogs, setPurchaseLogs] = useState<PurchaseLog[]>([]);
+  const [groupedLogs, setGroupedLogs] = useState<GroupedPurchaseLog[]>([]);
+  const [expandedMaterial, setExpandedMaterial] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingStock, setEditingStock] = useState<RawMaterialStock | null>(null);
   const [refillStock, setRefillStock] = useState<RawMaterialStock | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (currentStore) {
-      if (activeTab === 'stock') {
-        loadStocks();
-      } else {
-        loadPurchaseLogs();
-      }
-    }
-  }, [currentStore, activeTab]);
-
-  const loadStocks = async () => {
+  const loadStocks = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('v_raw_material_stock_status')
         .select('*')
@@ -63,19 +72,28 @@ export function RawMaterialsPage() {
 
       if (error) throw error;
       setStocks(data || []);
+      
+      if (isRefresh) {
+        toast.success('Stock refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading raw materials:', error);
       toast.error('Failed to load raw materials');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [currentStore]);
 
-  const loadPurchaseLogs = async () => {
+  const loadPurchaseLogs = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
 
     try {
-      setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const { data, error } = await supabase
         .from('raw_material_purchases')
         .select(`
@@ -107,11 +125,97 @@ export function RawMaterialsPage() {
       }));
 
       setPurchaseLogs(logs);
+
+      // Group purchases by raw material
+      const grouped = logs.reduce((acc: { [key: string]: GroupedPurchaseLog }, log) => {
+        const key = log.raw_material_name;
+        
+        if (!acc[key]) {
+          acc[key] = {
+            raw_material_name: log.raw_material_name,
+            unit: log.unit,
+            total_quantity: 0,
+            total_cost: 0,
+            purchase_count: 0,
+            latest_date: log.purchase_date,
+            purchases: [],
+          };
+        }
+        
+        acc[key].total_quantity += Number(log.quantity);
+        acc[key].total_cost += Number(log.total_cost);
+        acc[key].purchase_count += 1;
+        acc[key].purchases.push(log);
+        
+        // Keep the latest date
+        if (new Date(log.purchase_date) > new Date(acc[key].latest_date)) {
+          acc[key].latest_date = log.purchase_date;
+        }
+        
+        return acc;
+      }, {});
+
+      setGroupedLogs(Object.values(grouped));
+      
+      if (isRefresh) {
+        toast.success('Logs refreshed');
+      }
     } catch (error: any) {
       console.error('Error loading purchase logs:', error);
       toast.error('Failed to load purchase logs');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  }, [currentStore]);
+
+  // Load data when component mounts or when navigating back to this page
+  useEffect(() => {
+    if (currentStore) {
+      if (activeTab === 'stock') {
+        loadStocks();
+      } else {
+        loadPurchaseLogs();
+      }
+    }
+  }, [currentStore, activeTab, location.pathname, loadStocks, loadPurchaseLogs]);
+
+  // Reload data when window/tab becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && currentStore) {
+        if (activeTab === 'stock') {
+          loadStocks();
+        } else {
+          loadPurchaseLogs();
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      if (currentStore) {
+        if (activeTab === 'stock') {
+          loadStocks();
+        } else {
+          loadPurchaseLogs();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentStore, activeTab, loadStocks, loadPurchaseLogs]);
+
+  const handleRefresh = () => {
+    if (activeTab === 'stock') {
+      loadStocks(true);
+    } else {
+      loadPurchaseLogs(true);
     }
   };
 
@@ -182,13 +286,24 @@ export function RawMaterialsPage() {
           <h1 className="text-2xl font-display font-bold text-secondary-900">Raw Materials</h1>
           <p className="text-secondary-600 mt-1">Manage your raw materials inventory</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
-        >
-          <Plus className="w-5 h-5" />
-          Add New Material
-        </button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="btn-secondary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            title="Refresh data"
+          >
+            <RotateCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+          >
+            <Plus className="w-5 h-5" />
+            Add New Material
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -342,51 +457,116 @@ export function RawMaterialsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
                       Material
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Quantity
+                      Total Quantity
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Price/Unit
+                      Total Price
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Total Cost
+                    <th className="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                      Purchases
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">
-                      Notes
+                    <th className="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {purchaseLogs.map((log) => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-900">
-                        {new Date(log.purchase_date).toLocaleDateString('en-IN', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                        })}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">
-                        {log.raw_material_name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-secondary-900">
-                        {log.quantity} {log.unit}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-secondary-900">
-                        ₹{log.purchase_price.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-primary-900">
-                        ₹{log.total_cost.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-secondary-600">
-                        {log.notes || '-'}
-                      </td>
-                    </tr>
+                <tbody className="bg-white">
+                  {groupedLogs.map((group) => (
+                    <>
+                      <tr key={group.raw_material_name} className="hover:bg-gray-50 border-b border-gray-200">
+                        <td className="px-6 py-4 text-sm font-semibold text-secondary-900">
+                          {group.raw_material_name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right text-secondary-900">
+                          <span className="font-medium">{group.total_quantity.toFixed(2)}</span> {group.unit}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right font-bold text-primary-900">
+                          ₹{group.total_cost.toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                            {group.purchase_count} purchase{group.purchase_count > 1 ? 's' : ''}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <button
+                            onClick={() => setExpandedMaterial(
+                              expandedMaterial === group.raw_material_name ? null : group.raw_material_name
+                            )}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 rounded-lg transition-colors"
+                          >
+                            {expandedMaterial === group.raw_material_name ? (
+                              <>
+                                <ChevronUp className="w-4 h-4" />
+                                Hide Details
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="w-4 h-4" />
+                                View Details
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedMaterial === group.raw_material_name && (
+                        <tr>
+                          <td colSpan={5} className="px-0 py-0">
+                            <div className="bg-gray-50 border-t border-b border-gray-200">
+                              <table className="w-full">
+                                <thead className="bg-gray-100">
+                                  <tr>
+                                    <th className="px-6 py-2 text-left text-xs font-medium text-secondary-600 uppercase">
+                                      Date
+                                    </th>
+                                    <th className="px-6 py-2 text-right text-xs font-medium text-secondary-600 uppercase">
+                                      Quantity
+                                    </th>
+                                    <th className="px-6 py-2 text-right text-xs font-medium text-secondary-600 uppercase">
+                                      Price/Unit
+                                    </th>
+                                    <th className="px-6 py-2 text-right text-xs font-medium text-secondary-600 uppercase">
+                                      Total Cost
+                                    </th>
+                                    <th className="px-6 py-2 text-left text-xs font-medium text-secondary-600 uppercase">
+                                      Notes
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-100">
+                                  {group.purchases.map((purchase) => (
+                                    <tr key={purchase.id} className="hover:bg-gray-50">
+                                      <td className="px-6 py-3 text-sm text-secondary-700">
+                                        {new Date(purchase.purchase_date).toLocaleDateString('en-IN', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: 'numeric',
+                                        })}
+                                      </td>
+                                      <td className="px-6 py-3 text-sm text-right text-secondary-700">
+                                        {purchase.quantity} {purchase.unit}
+                                      </td>
+                                      <td className="px-6 py-3 text-sm text-right text-secondary-700">
+                                        ₹{purchase.purchase_price.toFixed(2)}
+                                      </td>
+                                      <td className="px-6 py-3 text-sm text-right font-medium text-secondary-900">
+                                        ₹{purchase.total_cost.toFixed(2)}
+                                      </td>
+                                      <td className="px-6 py-3 text-sm text-secondary-600">
+                                        {purchase.notes || '-'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   ))}
                 </tbody>
               </table>

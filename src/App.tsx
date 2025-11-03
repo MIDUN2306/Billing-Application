@@ -13,6 +13,8 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { POSPage } from './pages/pos/POSPage';
 import { SalesPage } from './pages/sales/SalesPage';
+import { SalesHistoryPage } from './pages/sales/SalesHistoryPage';
+import { BillDownloadPage } from './pages/BillDownloadPage';
 import { PurchasesPage } from './pages/purchases/PurchasesPage';
 import { ExpensesPage } from './pages/expenses/ExpensesPage';
 import { ProductsPage } from './pages/products/ProductsPage';
@@ -50,6 +52,7 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/bill/:invoiceNumber" element={<BillDownloadPage />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
@@ -57,6 +60,7 @@ function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/pos" element={<POSPage />} />
             <Route path="/sales" element={<SalesPage />} />
+            <Route path="/sales/history" element={<SalesHistoryPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/products" element={<ProductsPage />} />
