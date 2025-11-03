@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Search, Edit, Trash2, Package, RefreshCw, History, RotateCw, Eye, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
@@ -54,9 +54,24 @@ export function RawMaterialsPage() {
   const [editingStock, setEditingStock] = useState<RawMaterialStock | null>(null);
   const [refillStock, setRefillStock] = useState<RawMaterialStock | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Refs to prevent race conditions and duplicate loads
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const loadStocks = useCallback(async (isRefresh = false) => {
-    if (!currentStore) return;
+    if (!currentStore?.id) {
+      setLoading(false);
+      return;
+    }
+    
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      console.log('Load already in progress, skipping');
+      return;
+    }
+    
+    loadingRef.current = true;
 
     try {
       if (isRefresh) {
@@ -71,7 +86,10 @@ export function RawMaterialsPage() {
         .order('raw_material_name');
 
       if (error) throw error;
-      setStocks(data || []);
+      
+      if (isMountedRef.current) {
+        setStocks(data || []);
+      }
       
       if (isRefresh) {
         toast.success('Stock refreshed');
@@ -82,11 +100,23 @@ export function RawMaterialsPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      loadingRef.current = false;
     }
-  }, [currentStore]);
+  }, [currentStore?.id]);
 
   const loadPurchaseLogs = useCallback(async (isRefresh = false) => {
-    if (!currentStore) return;
+    if (!currentStore?.id) {
+      setLoading(false);
+      return;
+    }
+    
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      console.log('Load already in progress, skipping');
+      return;
+    }
+    
+    loadingRef.current = true;
 
     try {
       if (isRefresh) {
@@ -124,8 +154,6 @@ export function RawMaterialsPage() {
         notes: item.notes,
       }));
 
-      setPurchaseLogs(logs);
-
       // Group purchases by raw material
       const grouped = logs.reduce((acc: { [key: string]: GroupedPurchaseLog }, log) => {
         const key = log.raw_material_name;
@@ -155,7 +183,10 @@ export function RawMaterialsPage() {
         return acc;
       }, {});
 
-      setGroupedLogs(Object.values(grouped));
+      if (isMountedRef.current) {
+        setPurchaseLogs(logs);
+        setGroupedLogs(Object.values(grouped));
+      }
       
       if (isRefresh) {
         toast.success('Logs refreshed');
@@ -166,24 +197,37 @@ export function RawMaterialsPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      loadingRef.current = false;
     }
-  }, [currentStore]);
+  }, [currentStore?.id]);
 
   // Load data when component mounts or when navigating back to this page
   useEffect(() => {
-    if (currentStore) {
+    isMountedRef.current = true;
+    loadingRef.current = false;
+    
+    if (currentStore?.id) {
       if (activeTab === 'stock') {
         loadStocks();
       } else {
         loadPurchaseLogs();
       }
+    } else {
+      // If store is not available yet, set loading to false to prevent infinite loading screen
+      setLoading(false);
     }
-  }, [currentStore, activeTab, location.pathname, loadStocks, loadPurchaseLogs]);
+
+    return () => {
+      isMountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id, activeTab, location.pathname]);
 
   // Reload data when window/tab becomes visible again
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden && currentStore) {
+      if (!document.hidden && currentStore?.id && isMountedRef.current) {
+        loadingRef.current = false;
         if (activeTab === 'stock') {
           loadStocks();
         } else {
@@ -193,7 +237,8 @@ export function RawMaterialsPage() {
     };
 
     const handleFocus = () => {
-      if (currentStore) {
+      if (currentStore?.id && isMountedRef.current) {
+        loadingRef.current = false;
         if (activeTab === 'stock') {
           loadStocks();
         } else {
@@ -209,7 +254,8 @@ export function RawMaterialsPage() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, [currentStore, activeTab, loadStocks, loadPurchaseLogs]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id, activeTab]);
 
   const handleRefresh = () => {
     if (activeTab === 'stock') {

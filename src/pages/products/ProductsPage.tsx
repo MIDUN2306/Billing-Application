@@ -37,12 +37,35 @@ export function ProductsPage() {
   const isMountedRef = useRef(true);
 
   const loadProducts = useCallback(async (isRefresh = false) => {
-    if (!currentStore?.id) return;
+    console.log('[ProductsPage] loadProducts called', { 
+      hasStore: !!currentStore?.id, 
+      loadingRefCurrent: loadingRef.current,
+      isRefresh 
+    });
+    
+    if (!currentStore?.id) {
+      console.log('[ProductsPage] No store ID, setting loading to false');
+      setLoading(false);
+      return;
+    }
 
     // Prevent multiple simultaneous loads
-    if (loadingRef.current && !isRefresh) return;
+    if (loadingRef.current && !isRefresh) {
+      console.log('[ProductsPage] Load already in progress, skipping');
+      return;
+    }
 
+    console.log('[ProductsPage] Starting load...');
     loadingRef.current = true;
+
+    // Safety timeout: Reset loadingRef after 10 seconds no matter what
+    const timeoutId = setTimeout(() => {
+      console.warn('[ProductsPage] Load timeout - resetting loading state');
+      loadingRef.current = false;
+      setLoading(false);
+      setRefreshing(false);
+      toast.error('Loading timeout - please refresh the page');
+    }, 10000);
 
     try {
       if (isRefresh) {
@@ -54,55 +77,94 @@ export function ProductsPage() {
       const storeId = currentStore.id;
       
       // Load actual products
+      console.log('[ProductsPage] Querying products...');
+      
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select(`
-          id,
-          name,
-          sku,
-          unit,
-          mrp,
-          quantity,
-          product_template_id,
-          category_id,
-          categories (
-            name
-          )
-        `)
+        .select('id, name, sku, unit, mrp, quantity, product_template_id, category_id')
         .eq('store_id', storeId)
         .eq('is_active', true)
         .order('name');
 
-      if (productsError) throw productsError;
+      console.log('[ProductsPage] Products query result:', { 
+        count: productsData?.length, 
+        hasError: !!productsError,
+        error: productsError?.message 
+      });
+
+      if (productsError) {
+        console.error('[ProductsPage] Products query error:', productsError);
+        throw productsError;
+      }
+      
+      // Load categories separately to avoid nested select issues
+      const categoryIds = [...new Set(productsData?.map((p: any) => p.category_id).filter(Boolean))];
+      let categoriesMap: { [key: string]: string } = {};
+      
+      console.log('[ProductsPage] Category IDs to load:', categoryIds);
+      
+      if (categoryIds.length > 0) {
+        console.log('[ProductsPage] Querying categories...');
+        const { data: categoriesData, error: categoriesError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .in('id', categoryIds);
+        
+        console.log('[ProductsPage] Categories query result:', { 
+          count: categoriesData?.length, 
+          hasError: !!categoriesError 
+        });
+        
+        if (!categoriesError && categoriesData) {
+          categoriesMap = categoriesData.reduce((acc, cat) => {
+            acc[cat.id] = cat.name;
+            return acc;
+          }, {} as { [key: string]: string });
+        }
+      } else {
+        console.log('[ProductsPage] No categories to load');
+      }
       
       // Load product templates (recipes)
+      console.log('[ProductsPage] Querying templates...');
       const { data: templatesData, error: templatesError } = await supabase
         .from('product_templates')
-        .select(`
-          id,
-          name,
-          sku,
-          unit,
-          mrp,
-          has_ingredients,
-          producible_quantity,
-          category_id,
-          categories (
-            name
-          )
-        `)
+        .select('id, name, sku, unit, mrp, has_ingredients, producible_quantity, category_id')
         .eq('store_id', storeId)
         .eq('is_active', true)
         .order('name');
 
-      if (templatesError) throw templatesError;
+      console.log('[ProductsPage] Templates query result:', { 
+        count: templatesData?.length, 
+        hasError: !!templatesError 
+      });
+
+      if (templatesError) {
+        console.error('[ProductsPage] Templates query error:', templatesError);
+        throw templatesError;
+      }
+      
+      // Load template categories if needed
+      const templateCategoryIds = [...new Set(templatesData?.map((t: any) => t.category_id).filter(Boolean))];
+      if (templateCategoryIds.length > 0) {
+        const { data: templateCategoriesData, error: templateCategoriesError } = await supabase
+          .from('categories')
+          .select('id, name')
+          .in('id', templateCategoryIds);
+        
+        if (!templateCategoriesError && templateCategoriesData) {
+          templateCategoriesData.forEach(cat => {
+            categoriesMap[cat.id] = cat.name;
+          });
+        }
+      }
       
       // Transform products
       const transformedProducts = (productsData || []).map((item: any) => ({
         id: item.id,
         name: item.name,
         sku: item.sku,
-        category_name: item.categories?.name || null,
+        category_name: item.category_id ? categoriesMap[item.category_id] || null : null,
         category_id: item.category_id,
         unit: item.unit,
         mrp: item.mrp,
@@ -115,8 +177,8 @@ export function ProductsPage() {
       // Find templates that don't have any products yet (need to be produced)
       const usedTemplateIds = new Set(
         transformedProducts
-          .filter(p => p.product_template_id)
-          .map(p => p.product_template_id)
+          .filter((p: any) => p.product_template_id)
+          .map((p: any) => p.product_template_id)
       );
       
       // Show templates without products as "Out of Stock" items that need production
@@ -126,7 +188,7 @@ export function ProductsPage() {
           id: item.id,
           name: item.name,
           sku: item.sku,
-          category_name: item.categories?.name || null,
+          category_name: item.category_id ? categoriesMap[item.category_id] || null : null,
           category_id: item.category_id,
           unit: item.unit,
           mrp: item.mrp,
@@ -143,15 +205,18 @@ export function ProductsPage() {
         a.name.localeCompare(b.name)
       );
       
+      console.log('[ProductsPage] Setting products', { count: allProducts.length });
       setProducts(allProducts);
       
       if (isRefresh) {
         toast.success('Products refreshed');
       }
     } catch (error: any) {
-      console.error('Error loading products:', error);
+      console.error('[ProductsPage] Error loading products:', error);
       toast.error('Failed to load products');
     } finally {
+      console.log('[ProductsPage] Load complete, resetting states');
+      clearTimeout(timeoutId); // Clear the safety timeout
       setLoading(false);
       setRefreshing(false);
       loadingRef.current = false;
@@ -165,6 +230,9 @@ export function ProductsPage() {
     
     if (currentStore?.id) {
       loadProducts();
+    } else {
+      // If store is not available yet, set loading to false to prevent infinite loading screen
+      setLoading(false);
     }
 
     return () => {
@@ -173,31 +241,8 @@ export function ProductsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStore?.id]);
 
-  // Reload data when window/tab becomes visible again
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && currentStore?.id && isMountedRef.current) {
-        loadingRef.current = false;
-        loadProducts();
-      }
-    };
-
-    const handleFocus = () => {
-      if (currentStore?.id && isMountedRef.current) {
-        loadingRef.current = false;
-        loadProducts();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStore?.id]);
+  // Note: Auto-reload on tab switch disabled due to Supabase connection issues
+  // Users can manually click the Refresh button if needed
 
   const handleRefresh = () => {
     loadProducts(true);
