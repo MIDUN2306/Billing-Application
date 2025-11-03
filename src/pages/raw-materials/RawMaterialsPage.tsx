@@ -67,7 +67,6 @@ export function RawMaterialsPage() {
     
     // Prevent multiple simultaneous loads
     if (loadingRef.current && !isRefresh) {
-      console.log('Load already in progress, skipping');
       return;
     }
     
@@ -112,7 +111,6 @@ export function RawMaterialsPage() {
     
     // Prevent multiple simultaneous loads
     if (loadingRef.current && !isRefresh) {
-      console.log('Load already in progress, skipping');
       return;
     }
     

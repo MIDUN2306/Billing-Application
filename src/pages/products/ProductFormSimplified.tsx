@@ -776,28 +776,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
                   </div>
                 </label>
 
-                <label className="flex items-start gap-3 p-3 border-2 rounded-lg cursor-pointer transition-colors hover:bg-white"
-                  style={{
-                    borderColor: formData.product_type === 'simple' ? '#8b1a39' : '#e5e7eb',
-                    backgroundColor: formData.product_type === 'simple' ? '#fef2f2' : 'transparent'
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name="product_type"
-                    checked={formData.product_type === 'simple'}
-                    onChange={() => setFormData({ ...formData, product_type: 'simple' })}
-                    className="mt-0.5"
-                  />
-                  <div className="flex-1">
-                    <div className="font-medium text-secondary-900 text-sm">
-                      🛒 Simple Product (Purchased ready-made)
-                    </div>
-                    <div className="text-xs text-secondary-600 mt-1">
-                      Bought ready-made (e.g., Biscuits, Samosas, Chips)
-                    </div>
-                  </div>
-                </label>
+
               </div>
             </div>
           )}

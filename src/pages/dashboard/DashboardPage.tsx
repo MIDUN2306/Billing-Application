@@ -1,28 +1,65 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
-import { TrendingUp, TrendingDown, Users, Package, AlertCircle, DollarSign, RotateCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, RotateCw, Wallet, Milk } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLocation } from 'react-router-dom';
+import { RawMaterialsDetailsModal } from './RawMaterialsDetailsModal';
+import { PettyCashDetailsModal } from './PettyCashDetailsModal';
+import { TotalCostsDetailsModal } from './TotalCostsDetailsModal';
+import { PaymentMethodDetailsModal } from './PaymentMethodDetailsModal';
+import { EnhancedDateFilter } from '../../components/EnhancedDateFilter';
+import { EnhancedDateFilter as EnhancedDateFilterType, getDefaultEnhancedFilter } from '../../utils/enhancedDateFilters';
+import { ProfitLossLineChart } from '../../components/charts/ProfitLossLineChart';
+import { PaymentMethodsPieChart } from '../../components/charts/PaymentMethodsPieChart';
 
 interface DashboardStats {
   today_sales: number;
   today_purchases: number;
   today_expenses: number;
+  today_raw_materials: number;
+  today_petty_cash: number;
+  total_costs_today: number;
   pending_payments: number;
   low_stock_count: number;
   total_customers: number;
   total_products: number;
 }
 
+interface ProfitLossData {
+  date: string;
+  sales: number;
+  costs: number;
+  profit_loss: number;
+}
+
+interface PaymentBreakdown {
+  payment_method: string;
+  total_amount: number;
+  transaction_count: number;
+}
+
 export function DashboardPage() {
   const { currentStore } = useStoreStore();
   const location = useLocation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [profitLossData, setProfitLossData] = useState<ProfitLossData[]>([]);
+  const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentBreakdown[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chartsLoading, setChartsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Modal states
+  const [showRawMaterialsModal, setShowRawMaterialsModal] = useState(false);
+  const [showPettyCashModal, setShowPettyCashModal] = useState(false);
+  const [showTotalCostsModal, setShowTotalCostsModal] = useState(false);
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  
+  // Date filter state
+  const [dateFilter, setDateFilter] = useState<EnhancedDateFilterType>(getDefaultEnhancedFilter());
 
-  const loadDashboardStats = useCallback(async (isRefresh = false) => {
+  const loadDashboardStats = useCallback(async (isRefresh = false, filter = dateFilter) => {
     if (!currentStore) return;
 
     try {
@@ -31,11 +68,58 @@ export function DashboardPage() {
       } else {
         setLoading(true);
       }
-      const { data, error } = await supabase
-        .rpc('get_dashboard_stats', { p_store_id: currentStore.id });
+      
+      // Load dashboard stats
+      const statsRes = await supabase.rpc('get_dashboard_stats_range', { 
+        p_store_id: currentStore.id,
+        p_start_date: filter.startDate,
+        p_end_date: filter.endDate
+      });
 
-      if (error) throw error;
-      setStats(data);
+      if (statsRes.error) throw statsRes.error;
+      setStats(statsRes.data);
+      
+      // Load chart data in parallel
+      setChartsLoading(true);
+      const [profitLossRes, paymentsRes] = await Promise.all([
+        supabase.rpc('get_daily_profit_loss', {
+          p_store_id: currentStore.id,
+          p_start_date: filter.startDate,
+          p_end_date: filter.endDate
+        }),
+        supabase
+          .from('sales')
+          .select('payment_method, total_amount')
+          .eq('store_id', currentStore.id)
+          .gte('sale_date', filter.startDate)
+          .lte('sale_date', filter.endDate + 'T23:59:59')
+          .eq('status', 'completed')
+      ]);
+
+      if (profitLossRes.error) throw profitLossRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+
+      setProfitLossData(profitLossRes.data || []);
+      
+      // Aggregate payment data
+      const paymentMap = new Map<string, { total: number; count: number }>();
+      (paymentsRes.data || []).forEach((sale: any) => {
+        const method = sale.payment_method;
+        const existing = paymentMap.get(method) || { total: 0, count: 0 };
+        paymentMap.set(method, {
+          total: existing.total + Number(sale.total_amount),
+          count: existing.count + 1
+        });
+      });
+      
+      const paymentData = Array.from(paymentMap.entries()).map(([method, data]) => ({
+        payment_method: method,
+        total_amount: data.total,
+        transaction_count: data.count
+      }));
+      
+      setPaymentBreakdown(paymentData);
+      setChartsLoading(false);
       
       if (isRefresh) {
         toast.success('Dashboard refreshed');
@@ -47,7 +131,7 @@ export function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [currentStore]);
+  }, [currentStore, dateFilter]);
 
   useEffect(() => {
     if (currentStore) {
@@ -92,7 +176,7 @@ export function DashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-display font-bold text-secondary-900">Dashboard</h1>
-          <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening today.</p>
+          <p className="text-secondary-600 mt-1">Welcome back! Here's what's happening.</p>
         </div>
         <button
           onClick={handleRefresh}
@@ -105,95 +189,168 @@ export function DashboardPage() {
         </button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Today's Sales */}
-        <div className="card">
+      {/* Enhanced Date Filter */}
+      <EnhancedDateFilter 
+        currentFilter={dateFilter}
+        onFilterChange={(filter) => {
+          setDateFilter(filter);
+          loadDashboardStats(false, filter);
+        }}
+      />
+
+      {/* Main Stats Cards - Cost Tracking (Clickable) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Raw Materials Cost - CLICKABLE */}
+        <button
+          onClick={() => setShowRawMaterialsModal(true)}
+          className="card bg-orange-50 border-orange-200 hover:shadow-lg hover:border-orange-300 transition-all cursor-pointer text-left"
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-secondary-600">Today's Sales</p>
-              <p className="text-2xl font-bold text-secondary-900 mt-1">
+              <p className="text-sm text-orange-700 font-medium">Raw Materials</p>
+              <p className="text-2xl font-bold text-orange-900 mt-1">
+                ₹{stats?.today_raw_materials.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-orange-600 mt-1">Purchase Cost</p>
+            </div>
+            <div className="w-12 h-12 bg-orange-200 rounded-lg flex items-center justify-center">
+              <Milk className="w-6 h-6 text-orange-700" />
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-orange-600 font-medium">
+            Click to view details →
+          </div>
+        </button>
+
+        {/* Petty Cash - CLICKABLE */}
+        <button
+          onClick={() => setShowPettyCashModal(true)}
+          className="card bg-purple-50 border-purple-200 hover:shadow-lg hover:border-purple-300 transition-all cursor-pointer text-left"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-purple-700 font-medium">Petty Cash</p>
+              <p className="text-2xl font-bold text-purple-900 mt-1">
+                ₹{stats?.today_petty_cash.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-purple-600 mt-1">Today's Cost</p>
+            </div>
+            <div className="w-12 h-12 bg-purple-200 rounded-lg flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-purple-700" />
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-purple-600 font-medium">
+            Click to view details →
+          </div>
+        </button>
+
+        {/* Total Costs Today - CLICKABLE */}
+        <button
+          onClick={() => setShowTotalCostsModal(true)}
+          className="card bg-red-50 border-red-200 hover:shadow-lg hover:border-red-300 transition-all cursor-pointer text-left"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-red-700 font-medium">Total Costs</p>
+              <p className="text-2xl font-bold text-red-900 mt-1">
+                ₹{stats?.total_costs_today.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-red-600 mt-1">Money OUT</p>
+            </div>
+            <div className="w-12 h-12 bg-red-200 rounded-lg flex items-center justify-center">
+              <TrendingDown className="w-6 h-6 text-red-700" />
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-red-600 font-medium">
+            Click to view breakdown →
+          </div>
+        </button>
+      </div>
+
+      {/* Revenue & Profit Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Today's Sales - Revenue IN */}
+        <div className="card bg-green-50 border-green-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-700 font-medium">Today's Sales</p>
+              <p className="text-2xl font-bold text-green-900 mt-1">
                 ₹{stats?.today_sales.toLocaleString() || 0}
               </p>
+              <p className="text-xs text-green-600 mt-1">Revenue IN</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Today's Purchases */}
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-secondary-600">Today's Purchases</p>
-              <p className="text-2xl font-bold text-secondary-900 mt-1">
-                ₹{stats?.today_purchases.toLocaleString() || 0}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <TrendingDown className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-green-200 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-green-700" />
             </div>
           </div>
         </div>
 
-        {/* Pending Payments */}
+        {/* Net Today */}
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-secondary-600">Pending Payments</p>
-              <p className="text-2xl font-bold text-secondary-900 mt-1">
-                ₹{stats?.pending_payments.toLocaleString() || 0}
+              <p className="text-sm text-secondary-600">Net Today</p>
+              <p className={`text-2xl font-bold mt-1 ${(stats?.today_sales || 0) - (stats?.total_costs_today || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ₹{((stats?.today_sales || 0) - (stats?.total_costs_today || 0)).toLocaleString()}
               </p>
+              <p className="text-xs text-secondary-600 mt-1">Profit/Loss</p>
             </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Low Stock Items */}
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-secondary-600">Low Stock Items</p>
-              <p className="text-2xl font-bold text-secondary-900 mt-1">
-                {stats?.low_stock_count || 0}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+            <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${(stats?.today_sales || 0) - (stats?.total_costs_today || 0) >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+              <DollarSign className={`w-6 h-6 ${(stats?.today_sales || 0) - (stats?.total_costs_today || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="card">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-primary-800" />
-            </div>
-            <div>
-              <p className="text-sm text-secondary-600">Total Customers</p>
-              <p className="text-xl font-bold text-secondary-900">{stats?.total_customers || 0}</p>
-            </div>
-          </div>
-        </div>
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Profit/Loss Line Chart */}
+        <ProfitLossLineChart 
+          data={profitLossData}
+          loading={chartsLoading}
+        />
 
-        <div className="card">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-accent-100 rounded-lg flex items-center justify-center">
-              <Package className="w-6 h-6 text-accent-600" />
-            </div>
-            <div>
-              <p className="text-sm text-secondary-600">Total Products</p>
-              <p className="text-xl font-bold text-secondary-900">{stats?.total_products || 0}</p>
-            </div>
-          </div>
-        </div>
+        {/* Payment Methods Pie Chart */}
+        <PaymentMethodsPieChart 
+          data={paymentBreakdown}
+          loading={chartsLoading}
+          onSegmentClick={(paymentMethod) => {
+            setSelectedPaymentMethod(paymentMethod);
+            setShowPaymentMethodModal(true);
+          }}
+        />
       </div>
+
+      {/* Modals */}
+      <RawMaterialsDetailsModal 
+        isOpen={showRawMaterialsModal}
+        onClose={() => setShowRawMaterialsModal(false)}
+        startDate={dateFilter.startDate}
+        endDate={dateFilter.endDate}
+        filterLabel={dateFilter.label}
+      />
+      <PettyCashDetailsModal 
+        isOpen={showPettyCashModal}
+        onClose={() => setShowPettyCashModal(false)}
+        startDate={dateFilter.startDate}
+        endDate={dateFilter.endDate}
+        filterLabel={dateFilter.label}
+      />
+      <TotalCostsDetailsModal 
+        isOpen={showTotalCostsModal}
+        onClose={() => setShowTotalCostsModal(false)}
+        startDate={dateFilter.startDate}
+        endDate={dateFilter.endDate}
+        filterLabel={dateFilter.label}
+      />
+      <PaymentMethodDetailsModal 
+        isOpen={showPaymentMethodModal}
+        onClose={() => setShowPaymentMethodModal(false)}
+        paymentMethod={selectedPaymentMethod}
+        startDate={dateFilter.startDate}
+        endDate={dateFilter.endDate}
+        filterLabel={dateFilter.label}
+      />
     </div>
   );
 }

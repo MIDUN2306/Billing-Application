@@ -17,8 +17,8 @@ import { SalesHistoryPage } from './pages/sales/SalesHistoryPage';
 import { BillDownloadPage } from './pages/BillDownloadPage';
 import { PurchasesPage } from './pages/purchases/PurchasesPage';
 import { ExpensesPage } from './pages/expenses/ExpensesPage';
+import { PettyCashPage } from './pages/petty-cash/PettyCashPage';
 import { ProductsPage } from './pages/products/ProductsPage';
-import { CustomersPage } from './pages/customers/CustomersPage';
 import { CategoriesPage } from './pages/categories/CategoriesPage';
 import { RawMaterialsPage } from './pages/raw-materials/RawMaterialsPage';
 
@@ -63,10 +63,10 @@ function App() {
             <Route path="/sales/history" element={<SalesHistoryPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
+            <Route path="/petty-cash" element={<PettyCashPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/categories" element={<CategoriesPage />} />
             <Route path="/raw-materials" element={<RawMaterialsPage />} />
-            <Route path="/customers" element={<CustomersPage />} />
             
             {/* Manager+ Routes */}
             <Route element={<ProtectedRoute requiredRole="manager" />}>

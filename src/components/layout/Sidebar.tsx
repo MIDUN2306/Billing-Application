@@ -3,14 +3,10 @@ import {
   LayoutDashboard, 
   ShoppingCart, 
   Package, 
-  Users, 
-  TrendingUp,
-  FileText,
-  Settings,
-  Coffee,
   Milk,
   X,
-  Receipt
+  Receipt,
+  Wallet
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -20,11 +16,7 @@ const navigation = [
   { name: 'Sales History', href: '/sales/history', icon: Receipt, roles: ['staff', 'manager', 'admin'] },
   { name: 'Products', href: '/products', icon: Package, roles: ['staff', 'manager', 'admin'] },
   { name: 'Raw Materials', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
-  { name: 'Customers', href: '/customers', icon: Users, roles: ['staff', 'manager', 'admin'] },
-  { name: 'Purchases', href: '/purchases', icon: TrendingUp, roles: ['staff', 'manager', 'admin'] },
-  { name: 'Reports', href: '/reports', icon: FileText, roles: ['manager', 'admin'] },
-  { name: 'Tea Boys', href: '/tea-boys', icon: Coffee, roles: ['manager', 'admin'] },
-  { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin'] },
+  { name: 'Petty Cash', href: '/petty-cash', icon: Wallet, roles: ['staff', 'manager', 'admin'] },
 ];
 
 interface SidebarProps {
