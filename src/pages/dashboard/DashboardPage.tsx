@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
-import { TrendingUp, TrendingDown, DollarSign, RotateCw, Wallet, Milk } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, RotateCw, Wallet, Milk, History } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useLocation } from 'react-router-dom';
+import { RawMaterialsStockModal } from './RawMaterialsStockModal';
 import { RawMaterialsDetailsModal } from './RawMaterialsDetailsModal';
 import { PettyCashDetailsModal } from './PettyCashDetailsModal';
 import { TotalCostsDetailsModal } from './TotalCostsDetailsModal';
@@ -50,6 +51,7 @@ export function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   
   // Modal states
+  const [showRawMaterialsStockModal, setShowRawMaterialsStockModal] = useState(false);
   const [showRawMaterialsModal, setShowRawMaterialsModal] = useState(false);
   const [showPettyCashModal, setShowPettyCashModal] = useState(false);
   const [showTotalCostsModal, setShowTotalCostsModal] = useState(false);
@@ -200,25 +202,47 @@ export function DashboardPage() {
 
       {/* Main Stats Cards - Cost Tracking (Clickable) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Raw Materials Cost - CLICKABLE */}
+        {/* Raw Materials Stock - CLICKABLE */}
         <button
-          onClick={() => setShowRawMaterialsModal(true)}
+          onClick={() => setShowRawMaterialsStockModal(true)}
           className="card bg-orange-50 border-orange-200 hover:shadow-lg hover:border-orange-300 transition-all cursor-pointer text-left"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-orange-700 font-medium">Raw Materials</p>
+              <p className="text-sm text-orange-700 font-medium">Raw Materials Stock</p>
               <p className="text-2xl font-bold text-orange-900 mt-1">
                 ₹{stats?.today_raw_materials.toLocaleString() || 0}
               </p>
-              <p className="text-xs text-orange-600 mt-1">Purchase Cost</p>
+              <p className="text-xs text-orange-600 mt-1">Track Stock Levels</p>
             </div>
             <div className="w-12 h-12 bg-orange-200 rounded-lg flex items-center justify-center">
               <Milk className="w-6 h-6 text-orange-700" />
             </div>
           </div>
           <div className="mt-3 text-xs text-orange-600 font-medium">
-            Click to view details →
+            Click to view stock →
+          </div>
+        </button>
+
+        {/* Raw Materials Cost Log - CLICKABLE */}
+        <button
+          onClick={() => setShowRawMaterialsModal(true)}
+          className="card bg-amber-50 border-amber-200 hover:shadow-lg hover:border-amber-300 transition-all cursor-pointer text-left"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-amber-700 font-medium">Raw Materials Cost Log</p>
+              <p className="text-2xl font-bold text-amber-900 mt-1">
+                ₹{stats?.today_raw_materials.toLocaleString() || 0}
+              </p>
+              <p className="text-xs text-amber-600 mt-1">Purchase History</p>
+            </div>
+            <div className="w-12 h-12 bg-amber-200 rounded-lg flex items-center justify-center">
+              <History className="w-6 h-6 text-amber-700" />
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-amber-600 font-medium">
+            Click to view log →
           </div>
         </button>
 
@@ -322,6 +346,10 @@ export function DashboardPage() {
       </div>
 
       {/* Modals */}
+      <RawMaterialsStockModal 
+        isOpen={showRawMaterialsStockModal}
+        onClose={() => setShowRawMaterialsStockModal(false)}
+      />
       <RawMaterialsDetailsModal 
         isOpen={showRawMaterialsModal}
         onClose={() => setShowRawMaterialsModal(false)}

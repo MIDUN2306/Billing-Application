@@ -164,7 +164,7 @@ export function RawMaterialsDetailsModal({ isOpen, onClose, startDate, endDate, 
                       Total Cost
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Time
+                      Date & Time
                     </th>
                   </tr>
                 </thead>
@@ -188,7 +188,14 @@ export function RawMaterialsDetailsModal({ isOpen, onClose, startDate, endDate, 
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-900 font-medium">
+                          {new Date(purchase.purchase_date).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="text-xs text-gray-500">
                           {new Date(purchase.purchase_date).toLocaleTimeString('en-IN', {
                             hour: '2-digit',
                             minute: '2-digit'
