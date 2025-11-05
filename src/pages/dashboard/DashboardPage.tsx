@@ -11,8 +11,9 @@ import { TotalCostsDetailsModal } from './TotalCostsDetailsModal';
 import { PaymentMethodDetailsModal } from './PaymentMethodDetailsModal';
 import { EnhancedDateFilter } from '../../components/EnhancedDateFilter';
 import { EnhancedDateFilter as EnhancedDateFilterType, getDefaultEnhancedFilter } from '../../utils/enhancedDateFilters';
-import { ProfitLossLineChart } from '../../components/charts/ProfitLossLineChart';
 import { PaymentMethodsPieChart } from '../../components/charts/PaymentMethodsPieChart';
+import { SalesVsExpensesBarChart } from '../../components/charts/SalesVsExpensesBarChart';
+import { DailySalesExpensesComboChart } from '../../components/charts/DailySalesExpensesComboChart';
 
 interface DashboardStats {
   today_sales: number;
@@ -27,25 +28,25 @@ interface DashboardStats {
   total_products: number;
 }
 
-interface ProfitLossData {
-  date: string;
-  sales: number;
-  costs: number;
-  profit_loss: number;
-}
-
 interface PaymentBreakdown {
   payment_method: string;
   total_amount: number;
   transaction_count: number;
 }
 
+interface SalesVsExpensesData {
+  date: string;
+  sales: number;
+  expenses: number;
+  profit_loss: number;
+}
+
 export function DashboardPage() {
   const { currentStore } = useStoreStore();
   const location = useLocation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [profitLossData, setProfitLossData] = useState<ProfitLossData[]>([]);
   const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentBreakdown[]>([]);
+  const [salesVsExpensesData, setSalesVsExpensesData] = useState<SalesVsExpensesData[]>([]);
   const [loading, setLoading] = useState(true);
   const [chartsLoading, setChartsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,25 +84,25 @@ export function DashboardPage() {
       
       // Load chart data in parallel
       setChartsLoading(true);
-      const [profitLossRes, paymentsRes] = await Promise.all([
-        supabase.rpc('get_daily_profit_loss', {
-          p_store_id: currentStore.id,
-          p_start_date: filter.startDate,
-          p_end_date: filter.endDate
-        }),
+      const [paymentsRes, salesVsExpensesRes] = await Promise.all([
         supabase
           .from('sales')
           .select('payment_method, total_amount')
           .eq('store_id', currentStore.id)
           .gte('sale_date', filter.startDate)
           .lte('sale_date', filter.endDate + 'T23:59:59')
-          .eq('status', 'completed')
+          .eq('status', 'completed'),
+        supabase.rpc('get_daily_sales_vs_expenses', {
+          p_store_id: currentStore.id,
+          p_start_date: filter.startDate,
+          p_end_date: filter.endDate
+        })
       ]);
 
-      if (profitLossRes.error) throw profitLossRes.error;
       if (paymentsRes.error) throw paymentsRes.error;
+      if (salesVsExpensesRes.error) throw salesVsExpensesRes.error;
 
-      setProfitLossData(profitLossRes.data || []);
+      setSalesVsExpensesData(salesVsExpensesRes.data || []);
       
       // Aggregate payment data
       const paymentMap = new Map<string, { total: number; count: number }>();
@@ -328,9 +329,9 @@ export function DashboardPage() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Profit/Loss Line Chart */}
-        <ProfitLossLineChart 
-          data={profitLossData}
+        {/* Sales vs Expenses Overview Chart */}
+        <SalesVsExpensesBarChart 
+          data={salesVsExpensesData}
           loading={chartsLoading}
         />
 
@@ -342,6 +343,14 @@ export function DashboardPage() {
             setSelectedPaymentMethod(paymentMethod);
             setShowPaymentMethodModal(true);
           }}
+        />
+      </div>
+
+      {/* Daily Trend Chart - Full Width */}
+      <div className="w-full">
+        <DailySalesExpensesComboChart 
+          data={salesVsExpensesData}
+          loading={chartsLoading}
         />
       </div>
 
