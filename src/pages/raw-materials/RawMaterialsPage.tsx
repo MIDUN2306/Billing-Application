@@ -450,6 +450,7 @@ export function RawMaterialsPage() {
                     </p>
                     <p className="text-xl font-bold text-secondary-900">
                       ₹{stock.purchase_price.toFixed(2)}
+                      <span className="text-sm font-medium text-secondary-600">/{stock.unit}</span>
                     </p>
                   </div>
 

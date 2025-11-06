@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Edit, Trash2, Package, List, RotateCw } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, List, RotateCw, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { ProductTemplateForm } from './ProductTemplateForm';
 import { ManageIngredientsModal } from './ManageIngredientsModal';
+import { ManageRecipeBatchesModal } from './ManageRecipeBatchesModal';
 import { ProductTemplateWithDetails } from '../../types/database.types';
 import toast from 'react-hot-toast';
 import { useLocation } from 'react-router-dom';
@@ -17,6 +18,7 @@ export function ProductTemplatesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ProductTemplateWithDetails | null>(null);
   const [managingIngredientsFor, setManagingIngredientsFor] = useState<ProductTemplateWithDetails | null>(null);
+  const [managingBatchesFor, setManagingBatchesFor] = useState<ProductTemplateWithDetails | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadTemplates = useCallback(async (isRefresh = false) => {
@@ -268,13 +270,22 @@ export function ProductTemplatesPage() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {template.has_ingredients && (
-                          <button
-                            onClick={() => handleManageIngredients(template)}
-                            className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="Manage Ingredients"
-                          >
-                            <List className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => setManagingBatchesFor(template)}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Manage Recipe Batches"
+                            >
+                              <Layers className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleManageIngredients(template)}
+                              className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                              title="Manage Ingredients (Legacy)"
+                            >
+                              <List className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => handleEdit(template)}
@@ -313,6 +324,15 @@ export function ProductTemplatesPage() {
         <ManageIngredientsModal
           template={managingIngredientsFor}
           onClose={handleIngredientsClose}
+        />
+      )}
+
+      {/* Manage Recipe Batches Modal */}
+      {managingBatchesFor && (
+        <ManageRecipeBatchesModal
+          productTemplateId={managingBatchesFor.id}
+          productName={managingBatchesFor.name}
+          onClose={() => setManagingBatchesFor(null)}
         />
       )}
     </div>

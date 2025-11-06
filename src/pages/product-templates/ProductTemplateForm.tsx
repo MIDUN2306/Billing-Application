@@ -36,7 +36,7 @@ export function ProductTemplateForm({ template, onClose }: ProductTemplateFormPr
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [existingIngredients, setExistingIngredients] = useState<any[]>([]);
   const [stockWarnings, setStockWarnings] = useState<{ [key: number]: string }>({});
-  
+
   const [formData, setFormData] = useState({
     product_name_id: template?.product_name_id || '',
     unit: template?.unit || 'pcs',
@@ -156,7 +156,7 @@ export function ProductTemplateForm({ template, onClose }: ProductTemplateFormPr
   const removeIngredientRow = (index: number) => {
     const newRows = ingredientRows.filter((_, i) => i !== index);
     setIngredientRows(newRows);
-    
+
     const newWarnings = { ...stockWarnings };
     delete newWarnings[index];
     setStockWarnings(newWarnings);
@@ -171,7 +171,7 @@ export function ProductTemplateForm({ template, onClose }: ProductTemplateFormPr
       unit: material?.unit || '',
     };
     setIngredientRows(newRows);
-    
+
     const newWarnings = { ...stockWarnings };
     delete newWarnings[index];
     setStockWarnings(newWarnings);
@@ -237,7 +237,7 @@ export function ProductTemplateForm({ template, onClose }: ProductTemplateFormPr
 
       for (let i = 0; i < ingredientRows.length; i++) {
         const row = ingredientRows[i];
-        
+
         if (!row.raw_material_id) {
           toast.error(`Please select a raw material for ingredient ${i + 1}`);
           return false;
@@ -294,8 +294,8 @@ export function ProductTemplateForm({ template, onClose }: ProductTemplateFormPr
         sku: formData.sku || null,
         mrp: formData.mrp ? parseFloat(formData.mrp) : null,
         has_ingredients: formData.has_ingredients,
-        producible_quantity: formData.has_ingredients && formData.producible_quantity 
-          ? parseFloat(formData.producible_quantity) 
+        producible_quantity: formData.has_ingredients && formData.producible_quantity
+          ? parseFloat(formData.producible_quantity)
           : null,
         store_id: currentStore.id,
       };

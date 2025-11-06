@@ -26,6 +26,9 @@ export function RefillRawMaterialModal({ stock, onClose, onSuccess }: RefillRawM
     notes: '',
   });
 
+  const [priceMode, setPriceMode] = useState<'per_unit' | 'total'>('per_unit');
+  const [totalPrice, setTotalPrice] = useState('0');
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentStore) return;
@@ -136,7 +139,20 @@ export function RefillRawMaterialModal({ stock, onClose, onSuccess }: RefillRawM
                 step="0.01"
                 min="0.01"
                 value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, quantity: e.target.value });
+                  // Recalculate based on current mode
+                  if (priceMode === 'per_unit') {
+                    const qty = parseFloat(e.target.value) || 0;
+                    const price = parseFloat(formData.purchase_price) || 0;
+                    setTotalPrice((qty * price).toFixed(2));
+                  } else {
+                    const qty = parseFloat(e.target.value) || 1;
+                    const total = parseFloat(totalPrice) || 0;
+                    const perUnit = qty > 0 ? (total / qty).toFixed(2) : '0.00';
+                    setFormData({ ...formData, quantity: e.target.value, purchase_price: perUnit });
+                  }
+                }}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="Enter quantity"
                 autoFocus
@@ -147,30 +163,106 @@ export function RefillRawMaterialModal({ stock, onClose, onSuccess }: RefillRawM
             </div>
           </div>
 
-          {/* Purchase Price */}
+          {/* Purchase Price with Mode Toggle */}
           <div>
-            <label className="block text-sm font-medium text-secondary-700 mb-2">
-              Purchase Price per {stock.unit} *
-            </label>
-            <input
-              type="number"
-              required
-              step="0.01"
-              min="0"
-              value={formData.purchase_price}
-              onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="0.00"
-            />
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-secondary-700">
+                Purchase Price *
+              </label>
+              <div className="flex bg-gray-100 rounded-lg p-1">
+                <button
+                  type="button"
+                  onClick={() => setPriceMode('per_unit')}
+                  className={`px-3 py-1 text-xs font-semibold rounded transition-all ${
+                    priceMode === 'per_unit'
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-secondary-600 hover:text-secondary-900'
+                  }`}
+                >
+                  Per Unit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPriceMode('total')}
+                  className={`px-3 py-1 text-xs font-semibold rounded transition-all ${
+                    priceMode === 'total'
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-secondary-600 hover:text-secondary-900'
+                  }`}
+                >
+                  Total Price
+                </button>
+              </div>
+            </div>
+
+            {priceMode === 'per_unit' ? (
+              <div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-600 font-semibold">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    min="0"
+                    value={formData.purchase_price}
+                    onChange={(e) => {
+                      setFormData({ ...formData, purchase_price: e.target.value });
+                      const qty = parseFloat(formData.quantity) || 0;
+                      const price = parseFloat(e.target.value) || 0;
+                      setTotalPrice((qty * price).toFixed(2));
+                    }}
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-secondary-500 mt-1">
+                  Price per {stock.unit}
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-600 font-semibold">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    required
+                    step="0.01"
+                    min="0"
+                    value={totalPrice}
+                    onChange={(e) => {
+                      setTotalPrice(e.target.value);
+                      const qty = parseFloat(formData.quantity) || 1;
+                      const total = parseFloat(e.target.value) || 0;
+                      const perUnit = qty > 0 ? (total / qty).toFixed(2) : '0.00';
+                      setFormData({ ...formData, purchase_price: perUnit });
+                    }}
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-secondary-500 mt-1">
+                  Total price for {formData.quantity || '0'} {stock.unit}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* Total Cost Preview */}
-          {formData.quantity && formData.purchase_price && (
+          {/* Price Calculation Display */}
+          {formData.quantity && formData.purchase_price && parseFloat(formData.quantity) > 0 && (
             <div className="bg-primary-50 rounded-lg p-4 border border-primary-200">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-primary-900">Total Cost</p>
+                <p className="text-sm font-medium text-primary-900">
+                  {priceMode === 'per_unit' ? 'Total Cost' : 'Per Unit Cost'}
+                </p>
                 <p className="text-xl font-bold text-primary-900">
-                  ₹{(parseFloat(formData.quantity) * parseFloat(formData.purchase_price)).toFixed(2)}
+                  {priceMode === 'per_unit'
+                    ? `₹${(parseFloat(formData.quantity) * parseFloat(formData.purchase_price)).toFixed(2)}`
+                    : `₹${formData.purchase_price}/${stock.unit}`
+                  }
                 </p>
               </div>
             </div>

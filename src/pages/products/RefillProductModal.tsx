@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
+import { RecipeBatch } from '../../types/database.types';
 import toast from 'react-hot-toast';
 
 interface RefillProductModalProps {
@@ -24,6 +25,10 @@ interface Ingredient {
   available_stock: number;
 }
 
+interface DraftOption extends RecipeBatch {
+  ingredient_count: number;
+}
+
 export function RefillProductModal({ product, onClose, onSuccess }: RefillProductModalProps) {
   const { currentStore } = useStoreStore();
   const [loading, setLoading] = useState(false);
@@ -33,9 +38,16 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
   const [producibleQuantity, setProducibleQuantity] = useState<number | null>(null);
   const [hasIngredients, setHasIngredients] = useState(false);
   const [stockWarnings, setStockWarnings] = useState<{ [key: string]: string }>({});
+  const [availableDrafts, setAvailableDrafts] = useState<DraftOption[]>([]);
+  const [selectedDraftId, setSelectedDraftId] = useState<string>('');
 
   useEffect(() => {
-    loadTemplateDetails();
+    if (product.product_template_id) {
+      loadDrafts();
+    } else {
+      setLoadingTemplate(false);
+      setHasIngredients(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -44,56 +56,157 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
     }
   }, [quantityToAdd, ingredients, producibleQuantity]);
 
-  const loadTemplateDetails = async () => {
-    if (!currentStore || !product.product_template_id) {
-      setLoadingTemplate(false);
-      return;
-    }
+  const loadDrafts = async () => {
+    if (!currentStore || !product.product_template_id) return;
 
     try {
-      // Get template details
-      const { data: template, error: templateError } = await supabase
-        .from('product_templates')
-        .select('has_ingredients, producible_quantity')
-        .eq('id', product.product_template_id)
-        .single();
+      // Load available drafts for this template
+      const { data: batches, error: batchesError } = await supabase
+        .from('recipe_batches')
+        .select('*')
+        .eq('product_template_id', product.product_template_id)
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .order('batch_name');
 
-      if (templateError) throw templateError;
+      if (batchesError) throw batchesError;
 
-      setHasIngredients(template.has_ingredients || false);
-      setProducibleQuantity(template.producible_quantity ? parseFloat(template.producible_quantity) : null);
+      if (batches && batches.length > 0) {
+        const draftsWithCounts: DraftOption[] = await Promise.all(
+          batches.map(async (batch) => {
+            const { count, error: countError } = await supabase
+              .from('recipe_batch_ingredients')
+              .select('*', { count: 'exact', head: true })
+              .eq('recipe_batch_id', batch.id);
 
-      // If has ingredients, load them
-      if (template.has_ingredients) {
-        const { data: ingredientData, error: ingredientError } = await supabase
-          .from('v_product_ingredient_details')
-          .select('*')
-          .eq('product_template_id', product.product_template_id)
-          .eq('store_id', currentStore.id);
+            if (countError) throw countError;
 
-        if (ingredientError) throw ingredientError;
+            return {
+              ...batch,
+              ingredient_count: count || 0,
+            };
+          })
+        );
 
-        const ingredientsList: Ingredient[] = (ingredientData || []).map((item: any) => ({
-          raw_material_id: item.raw_material_id,
-          raw_material_name: item.raw_material_name,
-          quantity_needed: item.quantity_needed,
-          unit: item.unit,
-          available_stock: item.available_stock || 0,
-        }));
+        setAvailableDrafts(draftsWithCounts);
+        setHasIngredients(true);
 
-        setIngredients(ingredientsList);
+        // Auto-select draft in priority order:
+        // 1. Draft named "Standard Recipe" (case-insensitive)
+        // 2. Draft marked as default
+        // 3. First available draft
+        const standardRecipe = draftsWithCounts.find(
+          d => d.batch_name.toLowerCase() === 'standard recipe'
+        );
+        const defaultDraft = draftsWithCounts.find(d => d.is_default);
+        const draftToSelect = standardRecipe || defaultDraft || draftsWithCounts[0];
         
-        // Auto-populate quantity with recipe yield
-        const yieldQty = template.producible_quantity ? parseFloat(template.producible_quantity) : null;
-        if (yieldQty && yieldQty > 0) {
-          setQuantityToAdd(yieldQty.toString());
+        if (draftToSelect) {
+          // Pass the draft data directly to avoid state timing issues
+          handleDraftSelection(draftToSelect.id, draftToSelect);
+        }
+      } else {
+        // No drafts, load from old system
+        loadLegacyTemplate();
+      }
+    } catch (error) {
+      console.error('Error loading drafts:', error);
+      toast.error('Failed to load recipe drafts');
+    } finally {
+      setLoadingTemplate(false);
+    }
+  };
+
+  const handleDraftSelection = async (draftId: string, draftData?: DraftOption) => {
+    if (!currentStore || !draftId) return;
+
+    // Use provided draft data or find it in state
+    const draft = draftData || availableDrafts.find(d => d.id === draftId);
+    if (!draft) return;
+
+    try {
+      setSelectedDraftId(draftId);
+      setProducibleQuantity(draft.producible_quantity);
+      setQuantityToAdd(draft.producible_quantity.toString());
+
+      // Load ingredients for this draft
+      const { data: batchIngredients, error: ingredientsError } = await supabase
+        .from('recipe_batch_ingredients')
+        .select(`
+          raw_material_id,
+          quantity_needed,
+          unit,
+          raw_materials (
+            name
+          )
+        `)
+        .eq('recipe_batch_id', draftId)
+        .eq('store_id', currentStore.id);
+
+      if (ingredientsError) throw ingredientsError;
+
+      if (batchIngredients) {
+        // Get stock information for each raw material
+        const ingredientsWithStock: Ingredient[] = await Promise.all(
+          batchIngredients.map(async (ing: any) => {
+            const { data: stockData, error: stockError } = await supabase
+              .from('raw_material_stock')
+              .select('quantity')
+              .eq('raw_material_id', ing.raw_material_id)
+              .eq('store_id', currentStore.id)
+              .single();
+
+            return {
+              raw_material_id: ing.raw_material_id,
+              raw_material_name: ing.raw_materials?.name || 'Unknown',
+              quantity_needed: ing.quantity_needed,
+              unit: ing.unit,
+              available_stock: stockData?.quantity || 0,
+            };
+          })
+        );
+
+        setIngredients(ingredientsWithStock);
+      }
+    } catch (error) {
+      console.error('Error loading draft ingredients:', error);
+      toast.error('Failed to load draft ingredients');
+    }
+  };
+
+  const loadLegacyTemplate = async () => {
+    if (!currentStore || !product.product_template_id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('v_product_ingredient_details')
+        .select('*')
+        .eq('product_template_id', product.product_template_id)
+        .eq('store_id', currentStore.id);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const templateData = data[0];
+        setProducibleQuantity(templateData.producible_quantity);
+        setQuantityToAdd(templateData.producible_quantity?.toString() || '1');
+        setHasIngredients(templateData.has_ingredients);
+
+        if (templateData.has_ingredients) {
+          const ingredientsList: Ingredient[] = data.map((item: any) => ({
+            raw_material_id: item.raw_material_id,
+            raw_material_name: item.raw_material_name,
+            quantity_needed: item.quantity_needed,
+            unit: item.unit,
+            available_stock: item.available_stock,
+          }));
+          setIngredients(ingredientsList);
         }
       }
     } catch (error) {
-      console.error('Error loading template details:', error);
-      toast.error('Failed to load product recipe');
-    } finally {
-      setLoadingTemplate(false);
+      console.error('Error loading legacy template:', error);
+      toast.error('Failed to load product template');
     }
   };
 
@@ -168,13 +281,20 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
         }
       }
 
-      // Update product quantity
+      // Update product quantity and save which draft was used
+      const updateData: any = {
+        quantity: product.quantity + qty,
+        updated_at: new Date().toISOString(),
+      };
+
+      // If a draft was selected, save it
+      if (selectedDraftId) {
+        updateData.last_recipe_batch_id = selectedDraftId;
+      }
+
       const { error: productError } = await supabase
         .from('products')
-        .update({
-          quantity: product.quantity + qty,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', product.id);
 
       if (productError) throw productError;
@@ -185,7 +305,8 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
       onClose();
     } catch (error: any) {
       console.error('Error refilling product:', error);
-      toast.error(error.message || 'Failed to refill product');
+      const errorMessage = error?.message || error?.error_description || 'Failed to refill product';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -224,6 +345,37 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Draft Selector */}
+          {availableDrafts.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-secondary-700 mb-2">
+                Select Recipe Draft *
+              </label>
+              <select
+                value={selectedDraftId}
+                onChange={(e) => handleDraftSelection(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                {availableDrafts.map((draft) => (
+                  <option key={draft.id} value={draft.id}>
+                    {draft.batch_name}
+                    {draft.is_default && ' (Default)'}
+                    {' • '}
+                    {draft.ingredient_count} ingredient{draft.ingredient_count !== 1 ? 's' : ''}
+                    {' • Yields '}
+                    {draft.producible_quantity} {product.unit}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2 mt-2 text-xs text-secondary-500">
+                <Layers className="w-4 h-4" />
+                <span>
+                  {availableDrafts.length} recipe draft{availableDrafts.length !== 1 ? 's' : ''} available
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Recipe Info */}
           {hasIngredients && ingredients.length > 0 && (
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">

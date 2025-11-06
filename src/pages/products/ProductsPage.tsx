@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Search, Trash2, Package, RefreshCw, Edit, RotateCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
-import { ProductFormSimplified } from './ProductFormSimplified';
-import { EditTemplateModal} from './EditTemplateModal';
+import { ProductFormWithInlineDrafts } from './ProductFormWithInlineDrafts';
+import { EditTemplateModal } from './EditTemplateModal';
 import { RefillProductModal } from './RefillProductModal';
 import toast from 'react-hot-toast';
 
@@ -37,25 +37,18 @@ export function ProductsPage() {
   const isMountedRef = useRef(true);
 
   const loadProducts = useCallback(async (isRefresh = false) => {
-    console.log('[ProductsPage] loadProducts called', { 
-      hasStore: !!currentStore?.id, 
-      loadingRefCurrent: loadingRef.current,
-      isRefresh 
-    });
-    
+
+
     if (!currentStore?.id) {
-      console.log('[ProductsPage] No store ID, setting loading to false');
       setLoading(false);
       return;
     }
 
     // Prevent multiple simultaneous loads
     if (loadingRef.current && !isRefresh) {
-      console.log('[ProductsPage] Load already in progress, skipping');
       return;
     }
 
-    console.log('[ProductsPage] Starting load...');
     loadingRef.current = true;
 
     // Safety timeout: Reset loadingRef after 10 seconds no matter what
@@ -73,12 +66,11 @@ export function ProductsPage() {
       } else {
         setLoading(true);
       }
-      
+
       const storeId = currentStore.id;
-      
+
       // Load actual products
-      console.log('[ProductsPage] Querying products...');
-      
+
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('id, name, sku, unit, mrp, quantity, product_template_id, category_id')
@@ -86,35 +78,26 @@ export function ProductsPage() {
         .eq('is_active', true)
         .order('name');
 
-      console.log('[ProductsPage] Products query result:', { 
-        count: productsData?.length, 
-        hasError: !!productsError,
-        error: productsError?.message 
-      });
+
 
       if (productsError) {
         console.error('[ProductsPage] Products query error:', productsError);
         throw productsError;
       }
-      
+
       // Load categories separately to avoid nested select issues
       const categoryIds = [...new Set(productsData?.map((p: any) => p.category_id).filter(Boolean))];
       let categoriesMap: { [key: string]: string } = {};
-      
-      console.log('[ProductsPage] Category IDs to load:', categoryIds);
-      
+
+
       if (categoryIds.length > 0) {
-        console.log('[ProductsPage] Querying categories...');
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
           .select('id, name')
           .in('id', categoryIds);
-        
-        console.log('[ProductsPage] Categories query result:', { 
-          count: categoriesData?.length, 
-          hasError: !!categoriesError 
-        });
-        
+
+
+
         if (!categoriesError && categoriesData) {
           categoriesMap = categoriesData.reduce((acc, cat) => {
             acc[cat.id] = cat.name;
@@ -122,11 +105,9 @@ export function ProductsPage() {
           }, {} as { [key: string]: string });
         }
       } else {
-        console.log('[ProductsPage] No categories to load');
       }
-      
+
       // Load product templates (recipes)
-      console.log('[ProductsPage] Querying templates...');
       const { data: templatesData, error: templatesError } = await supabase
         .from('product_templates')
         .select('id, name, sku, unit, mrp, has_ingredients, producible_quantity, category_id')
@@ -134,16 +115,12 @@ export function ProductsPage() {
         .eq('is_active', true)
         .order('name');
 
-      console.log('[ProductsPage] Templates query result:', { 
-        count: templatesData?.length, 
-        hasError: !!templatesError 
-      });
 
       if (templatesError) {
         console.error('[ProductsPage] Templates query error:', templatesError);
         throw templatesError;
       }
-      
+
       // Load template categories if needed
       const templateCategoryIds = [...new Set(templatesData?.map((t: any) => t.category_id).filter(Boolean))];
       if (templateCategoryIds.length > 0) {
@@ -151,14 +128,14 @@ export function ProductsPage() {
           .from('categories')
           .select('id, name')
           .in('id', templateCategoryIds);
-        
+
         if (!templateCategoriesError && templateCategoriesData) {
           templateCategoriesData.forEach(cat => {
             categoriesMap[cat.id] = cat.name;
           });
         }
       }
-      
+
       // Transform products
       const transformedProducts = (productsData || []).map((item: any) => ({
         id: item.id,
@@ -173,14 +150,14 @@ export function ProductsPage() {
         stock_status: item.quantity === 0 ? 'out_of_stock' : item.quantity < 10 ? 'low_stock' : 'in_stock',
         is_template: false,
       }));
-      
+
       // Find templates that don't have any products yet (need to be produced)
       const usedTemplateIds = new Set(
         transformedProducts
           .filter((p: any) => p.product_template_id)
           .map((p: any) => p.product_template_id)
       );
-      
+
       // Show templates without products as "Out of Stock" items that need production
       const transformedTemplates = (templatesData || [])
         .filter((item: any) => !usedTemplateIds.has(item.id))
@@ -199,15 +176,14 @@ export function ProductsPage() {
           has_ingredients: item.has_ingredients,
           producible_quantity: item.producible_quantity,
         }));
-      
+
       // Combine products and templates, sort by name
-      const allProducts = [...transformedProducts, ...transformedTemplates].sort((a, b) => 
+      const allProducts = [...transformedProducts, ...transformedTemplates].sort((a, b) =>
         a.name.localeCompare(b.name)
       );
-      
-      console.log('[ProductsPage] Setting products', { count: allProducts.length });
+
       setProducts(allProducts);
-      
+
       if (isRefresh) {
         toast.success('Products refreshed');
       }
@@ -215,7 +191,6 @@ export function ProductsPage() {
       console.error('[ProductsPage] Error loading products:', error);
       toast.error('Failed to load products');
     } finally {
-      console.log('[ProductsPage] Load complete, resetting states');
       clearTimeout(timeoutId); // Clear the safety timeout
       setLoading(false);
       setRefreshing(false);
@@ -227,7 +202,7 @@ export function ProductsPage() {
   useEffect(() => {
     isMountedRef.current = true;
     loadingRef.current = false;
-    
+
     if (currentStore?.id) {
       loadProducts();
     } else {
@@ -252,7 +227,7 @@ export function ProductsPage() {
     // Show confirmation dialog
     const itemType = isTemplate ? 'recipe template' : 'product';
     const confirmMessage = `Are you sure you want to delete this ${itemType}?\n\nThis action cannot be undone.`;
-    
+
     if (!window.confirm(confirmMessage)) {
       return;
     }
@@ -277,11 +252,11 @@ export function ProductsPage() {
     setEditingProduct(product);
     setShowForm(true);
   };
-  
+
   const handleEditTemplate = (product: Product) => {
     setEditingTemplate(product);
   };
-  
+
   const handleProduce = async (product: Product) => {
     if (!product.is_template) {
       toast.error('This product is not a template. Use "Refill" to add more stock.');
@@ -363,7 +338,7 @@ export function ProductsPage() {
         if (createError) throw createError;
 
         toast.success(`Product "${product.name}" created. Now you can produce it.`);
-        
+
         // Open refill modal with the newly created product
         const productData: Product = {
           id: newProduct.id,
@@ -403,7 +378,7 @@ export function ProductsPage() {
       toast.error('This is a recipe template. Use "Produce" to create products from this recipe.');
       return;
     }
-    
+
     // Check if product has a template and ingredients
     if (!product.product_template_id) {
       // Simple product, no stock check needed
@@ -445,7 +420,7 @@ export function ProductsPage() {
         const ingredientNames = zeroStockIngredients
           .map((ing: any) => ing.raw_material_name)
           .join(', ');
-        
+
         toast.error(
           `Cannot refill: Out of stock for ${ingredientNames}. Please add raw materials first.`,
           { duration: 5000 }
@@ -462,10 +437,10 @@ export function ProductsPage() {
         const ingredientNames = lowStockIngredients
           .map((ing: any) => `${ing.raw_material_name} (${ing.available_stock} ${ing.unit})`)
           .join(', ');
-        
+
         toast(
           `⚠️ Low stock: ${ingredientNames}. You may not be able to produce the full recipe.`,
-          { 
+          {
             duration: 5000,
             icon: '⚠️',
             style: {
@@ -591,13 +566,12 @@ export function ProductsPage() {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 mb-1">Stock</p>
-                  <span className={`text-lg font-bold ${
-                    product.quantity === 0 
-                      ? 'text-red-600' 
-                      : product.quantity < 10 
-                        ? 'text-yellow-600' 
-                        : 'text-green-600'
-                  }`}>
+                  <span className={`text-lg font-bold ${product.quantity === 0
+                    ? 'text-red-600'
+                    : product.quantity < 10
+                      ? 'text-yellow-600'
+                      : 'text-green-600'
+                    }`}>
                     {product.quantity} {product.unit}
                   </span>
                 </div>
@@ -650,7 +624,7 @@ export function ProductsPage() {
 
       {/* Add/Edit Product Modal */}
       {showForm && (
-        <ProductFormSimplified
+        <ProductFormWithInlineDrafts
           product={editingProduct}
           onClose={handleFormClose}
         />

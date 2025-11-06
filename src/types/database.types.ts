@@ -70,6 +70,40 @@ export interface ProductIngredientWithDetails extends ProductIngredient {
   stock_unit: string;
 }
 
+// Recipe Batch Types
+export interface RecipeBatch {
+  id: string;
+  product_template_id: string;
+  batch_name: string;
+  producible_quantity: number;
+  is_default: boolean;
+  store_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeBatchIngredient {
+  id: string;
+  recipe_batch_id: string;
+  raw_material_id: string;
+  quantity_needed: number;
+  unit: string;
+  store_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecipeBatchWithIngredients extends RecipeBatch {
+  ingredients: RecipeBatchIngredient[];
+}
+
+export interface RecipeBatchIngredientWithDetails extends RecipeBatchIngredient {
+  raw_material_name: string;
+  available_stock: number;
+  stock_unit: string;
+}
+
 export interface RawMaterialStock {
   id: string;
   raw_material_id: string;
