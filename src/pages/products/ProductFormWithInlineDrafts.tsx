@@ -3,6 +3,7 @@ import { X, Plus, Trash2, AlertTriangle, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { AddProductNameModal } from '../product-templates/AddProductNameModal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { RecipeBatch } from '../../types/database.types';
 import toast from 'react-hot-toast';
 
@@ -11,6 +12,7 @@ interface ProductFormWithInlineDraftsProps {
     id: string;
     name: string;
     sku: string | null;
+    category: string | null;
     category_id: string | null;
     unit: string;
     mrp: number | null;
@@ -38,6 +40,7 @@ interface ProductName {
   id: string;
   name: string;
   sku: string | null;
+  category: string | null;
 }
 
 interface DraftOption extends RecipeBatch {
@@ -62,6 +65,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
   const [formData, setFormData] = useState({
     product_name_id: '',
     product_name: '',
+    category: '',
     unit: 'pcs',
     sku: '',
     mrp: '',
@@ -206,6 +210,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
         setFormData({
           product_name_id: template.product_name_id || '',
           product_name: product.name,
+          category: product.category || '',
           unit: product.unit,
           sku: product.sku || '',
           mrp: product.mrp?.toString() || '',
@@ -251,6 +256,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
         setFormData({
           product_name_id: '',
           product_name: product.name,
+          category: product.category || '',
           unit: product.unit,
           sku: product.sku || '',
           mrp: product.mrp?.toString() || '',
@@ -304,9 +310,9 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
     if (!currentStore) return;
 
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('product_names')
-        .select('id, name, sku')
+        .select('id, name, sku, category')
         .eq('store_id', currentStore.id)
         .eq('is_active', true)
         .order('name');
@@ -335,6 +341,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
       product_name_id: productNameId,
       product_name: selectedName?.name || '',
       sku: selectedName?.sku || formData.sku,
+      category: selectedName?.category || formData.category,
     });
     
     setSelectedDraftId('');
@@ -348,7 +355,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
     try {
       const { data, error } = await supabase
         .from('product_names')
-        .select('id, name, sku')
+        .select('id, name, sku, category')
         .eq('id', newProductNameId)
         .single();
       
@@ -360,6 +367,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
           product_name_id: data.id,
           product_name: data.name,
           sku: data.sku || formData.sku,
+          category: data.category || formData.category,
         });
       }
     } catch (error) {
@@ -836,6 +844,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
       const productData = {
         product_template_id: template.id,
         name: formData.product_name.trim(),
+        category: formData.category || null,
         category_id: null,
         unit: formData.unit,
         sku: formData.sku || null,
@@ -893,20 +902,20 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
             ) : (
               <>
                 <div className="flex gap-2">
-                  <select
-                    required
-                    value={formData.product_name_id}
-                    onChange={(e) => handleProductNameChange(e.target.value)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    autoFocus
-                  >
-                    <option value="">Select Product Name</option>
-                    {productNames.map((pn) => (
-                      <option key={pn.id} value={pn.id}>
-                        {pn.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={productNames.map((pn) => ({
+                        value: pn.id,
+                        label: pn.name,
+                        subtitle: pn.sku ? `SKU: ${pn.sku}` : undefined,
+                        badge: pn.category || undefined,
+                      }))}
+                      value={formData.product_name_id}
+                      onChange={handleProductNameChange}
+                      placeholder="Select Product Name"
+                      searchPlaceholder="Search products by name or SKU..."
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowAddProductName(true)}
@@ -918,7 +927,63 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                   </button>
                 </div>
                 <p className="text-xs text-secondary-500 mt-1">
-                  Select from existing products or add a new one
+                  Search and select from existing products or add a new one
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Category Field */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Category *
+            </label>
+            {isEditMode ? (
+              <select
+                required
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">Select Category</option>
+                <option value="Beverages">Beverages</option>
+                <option value="Cold Beverages">Cold Beverages</option>
+                <option value="Consumable">Consumable</option>
+                <option value="Bun">Bun</option>
+                <option value="Cutlets">Cutlets</option>
+                <option value="Laddu">Laddu</option>
+                <option value="Parcel">Parcel</option>
+                <option value="Momos">Momos</option>
+                <option value="Puff & Cakes">Puff & Cakes</option>
+                <option value="Sandwich">Sandwich</option>
+                <option value="Snacks">Snacks</option>
+              </select>
+            ) : (
+              <>
+                <select
+                  required
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  disabled={!formData.product_name_id}
+                >
+                  <option value="">Select Category</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Cold Beverages">Cold Beverages</option>
+                  <option value="Consumable">Consumable</option>
+                  <option value="Bun">Bun</option>
+                  <option value="Cutlets">Cutlets</option>
+                  <option value="Laddu">Laddu</option>
+                  <option value="Parcel">Parcel</option>
+                  <option value="Momos">Momos</option>
+                  <option value="Puff & Cakes">Puff & Cakes</option>
+                  <option value="Sandwich">Sandwich</option>
+                  <option value="Snacks">Snacks</option>
+                </select>
+                <p className="text-xs text-secondary-500 mt-1">
+                  {formData.product_name_id 
+                    ? 'Category auto-populated from product name' 
+                    : 'Select a product name first to auto-populate category'}
                 </p>
               </>
             )}

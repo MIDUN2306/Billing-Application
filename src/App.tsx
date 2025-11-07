@@ -11,9 +11,11 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { TeaProductionHistoryPage } from './pages/dashboard/TeaProductionHistoryPage';
 import { POSPage } from './pages/pos/POSPage';
 import { SalesPage } from './pages/sales/SalesPage';
 import { SalesHistoryPage } from './pages/sales/SalesHistoryPage';
+import { SalesAnalyticsPage } from './pages/sales/SalesAnalyticsPage';
 import { BillDownloadPage } from './pages/BillDownloadPage';
 import { PurchasesPage } from './pages/purchases/PurchasesPage';
 import { ExpensesPage } from './pages/expenses/ExpensesPage';
@@ -59,8 +61,10 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
+            <Route path="/tea-production-history" element={<TeaProductionHistoryPage />} />
             <Route path="/pos" element={<POSPage />} />
             <Route path="/sales" element={<SalesPage />} />
+            <Route path="/sales/analytics" element={<SalesAnalyticsPage />} />
             <Route path="/sales/history" element={<SalesHistoryPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />

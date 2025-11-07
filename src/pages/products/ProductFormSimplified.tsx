@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { X, Plus, Trash2, AlertTriangle, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { AddProductNameModal } from '../product-templates/AddProductNameModal';
+import { ManageRecipeBatchesModal } from '../product-templates/ManageRecipeBatchesModal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import toast from 'react-hot-toast';
 
 interface ProductFormSimplifiedProps {
@@ -10,6 +12,7 @@ interface ProductFormSimplifiedProps {
     id: string;
     name: string;
     sku: string | null;
+    category: string | null;
     category_id: string | null;
     unit: string;
     mrp: number | null;
@@ -37,6 +40,7 @@ interface ProductName {
   id: string;
   name: string;
   sku: string | null;
+  category: string | null;
 }
 
 export function ProductFormSimplified({ product, onClose }: ProductFormSimplifiedProps) {
@@ -48,10 +52,15 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [stockWarnings, setStockWarnings] = useState<{ [key: number]: string }>({});
   const [showAddProductName, setShowAddProductName] = useState(false);
+  const [showManageBatches, setShowManageBatches] = useState(false);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [availableBatches, setAvailableBatches] = useState<any[]>([]);
+  const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     product_name_id: '',
     product_name: '',
+    category: '',
     unit: 'pcs',
     sku: '',
     mrp: '',
@@ -69,6 +78,13 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
       loadProductData();
     }
   }, []);
+
+  useEffect(() => {
+    // Load batches when product template is selected
+    if (formData.product_name_id && !isEditMode) {
+      loadAvailableBatches();
+    }
+  }, [formData.product_name_id]);
 
   const loadProductData = async () => {
     if (!product || !currentStore) return;
@@ -98,6 +114,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
         setFormData({
           product_name_id: template.product_name_id || '',
           product_name: product.name,
+          category: product.category || '',
           unit: product.unit,
           sku: product.sku || '',
           mrp: product.mrp?.toString() || '',
@@ -120,6 +137,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
         setFormData({
           product_name_id: '',
           product_name: product.name,
+          category: product.category || '',
           unit: product.unit,
           sku: product.sku || '',
           mrp: product.mrp?.toString() || '',
@@ -182,7 +200,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
     try {
       const { data, error } = await supabase
         .from('product_names')
-        .select('id, name, sku')
+        .select('id, name, sku, category')
         .eq('store_id', currentStore.id)
         .eq('is_active', true)
         .order('name');
@@ -191,6 +209,123 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
       setProductNames(data || []);
     } catch (error) {
       console.error('Error loading product names:', error);
+    }
+  };
+
+  const loadAvailableBatches = async () => {
+    if (!currentStore || !formData.product_name_id) return;
+
+    try {
+      // Find or create product template for this product name
+      let templateId: string | null = null;
+      
+      const { data: templates, error: templateError } = await supabase
+        .from('product_templates')
+        .select('id')
+        .eq('product_name_id', formData.product_name_id)
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .eq('has_ingredients', true)
+        .limit(1);
+
+      if (templateError) throw templateError;
+
+      if (templates && templates.length > 0) {
+        templateId = templates[0].id;
+      } else {
+        // Create a template if it doesn't exist
+        const selectedProductName = productNames.find(pn => pn.id === formData.product_name_id);
+        if (selectedProductName) {
+          const { data: newTemplate, error: createError } = await supabase
+            .from('product_templates')
+            .insert([{
+              name: selectedProductName.name,
+              unit: formData.unit,
+              sku: selectedProductName.sku || null,
+              has_ingredients: true,
+              producible_quantity: null,
+              store_id: currentStore.id,
+              product_name_id: formData.product_name_id,
+            }])
+            .select()
+            .single();
+
+          if (createError) throw createError;
+          templateId = newTemplate.id;
+        }
+      }
+
+      if (!templateId) {
+        setAvailableBatches([]);
+        setSelectedBatchId(null);
+        setCurrentTemplateId(null);
+        return;
+      }
+
+      setCurrentTemplateId(templateId);
+
+      // Load batches for this template
+      const { data: batches, error: batchesError } = await supabase
+        .from('recipe_batches')
+        .select(`
+          id,
+          batch_name,
+          producible_quantity,
+          is_default
+        `)
+        .eq('product_template_id', templateId)
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .order('batch_name');
+
+      if (batchesError) throw batchesError;
+
+      setAvailableBatches(batches || []);
+      
+      // Auto-select default batch if available
+      const defaultBatch = batches?.find(b => b.is_default);
+      if (defaultBatch) {
+        setSelectedBatchId(defaultBatch.id);
+        await loadBatchIngredients(defaultBatch.id);
+      }
+    } catch (error) {
+      console.error('Error loading batches:', error);
+    }
+  };
+
+  const loadBatchIngredients = async (batchId: string) => {
+    if (!currentStore) return;
+
+    try {
+      const { data: ingredients, error } = await supabase
+        .from('recipe_batch_ingredients')
+        .select('raw_material_id, quantity_needed, unit')
+        .eq('recipe_batch_id', batchId)
+        .eq('store_id', currentStore.id);
+
+      if (error) throw error;
+
+      if (ingredients && ingredients.length > 0) {
+        const ingredientRows = ingredients.map((ing: any) => ({
+          raw_material_id: ing.raw_material_id,
+          quantity_needed: ing.quantity_needed.toString(),
+          unit: ing.unit,
+        }));
+        setIngredientRows(ingredientRows);
+
+        // Get the batch's producible quantity
+        const batch = availableBatches.find(b => b.id === batchId);
+        if (batch) {
+          setFormData(prev => ({
+            ...prev,
+            producible_quantity: batch.producible_quantity.toString(),
+            quantity_to_add: batch.producible_quantity.toString(),
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading batch ingredients:', error);
     }
   };
 
@@ -210,8 +345,9 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
       ...formData,
       product_name_id: productNameId,
       product_name: selectedName?.name || '',
-      // Auto-populate SKU if the product name has one
+      // Auto-populate SKU and category if the product name has them
       sku: selectedName?.sku || formData.sku,
+      category: selectedName?.category || formData.category,
     });
   };
 
@@ -223,7 +359,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
     try {
       const { data, error } = await supabase
         .from('product_names')
-        .select('id, name, sku')
+        .select('id, name, sku, category')
         .eq('id', newProductNameId)
         .single();
       
@@ -234,13 +370,34 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
           ...formData,
           product_name_id: data.id,
           product_name: data.name,
-          // Auto-populate SKU if the product name has one
+          // Auto-populate SKU and category if the product name has them
           sku: data.sku || formData.sku,
+          category: data.category || formData.category,
         });
       }
     } catch (error) {
       console.error('Error fetching new product name:', error);
     }
+  };
+
+  const handleBatchChange = async (batchId: string) => {
+    setSelectedBatchId(batchId);
+    if (batchId) {
+      await loadBatchIngredients(batchId);
+    } else {
+      setIngredientRows([]);
+      setFormData(prev => ({
+        ...prev,
+        producible_quantity: '',
+        quantity_to_add: '1',
+      }));
+    }
+  };
+
+  const handleManageBatchesClose = async () => {
+    setShowManageBatches(false);
+    // Reload batches after managing them
+    await loadAvailableBatches();
   };
 
   const addIngredientRow = () => {
@@ -494,6 +651,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
       if (isEditMode && product) {
         const updateData: any = {
           name: formData.product_name.trim(),
+          category: formData.category || null,
           unit: formData.unit,
           sku: formData.sku || null,
           mrp: formData.mrp ? parseFloat(formData.mrp) : null,
@@ -651,6 +809,7 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
       const productData = {
         product_template_id: template.id,
         name: formData.product_name.trim(),
+        category: formData.category || null,
         category_id: null,
         unit: formData.unit,
         sku: formData.sku || null,
@@ -711,20 +870,20 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
             ) : (
               <>
                 <div className="flex gap-2">
-                  <select
-                    required
-                    value={formData.product_name_id}
-                    onChange={(e) => handleProductNameChange(e.target.value)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    autoFocus
-                  >
-                    <option value="">Select Product Name</option>
-                    {productNames.map((pn) => (
-                      <option key={pn.id} value={pn.id}>
-                        {pn.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex-1">
+                    <SearchableSelect
+                      options={productNames.map((pn) => ({
+                        value: pn.id,
+                        label: pn.name,
+                        subtitle: pn.sku ? `SKU: ${pn.sku}` : undefined,
+                        badge: pn.category || undefined,
+                      }))}
+                      value={formData.product_name_id}
+                      onChange={handleProductNameChange}
+                      placeholder="Select Product Name"
+                      searchPlaceholder="Search products by name or SKU..."
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowAddProductName(true)}
@@ -736,7 +895,63 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
                   </button>
                 </div>
                 <p className="text-xs text-secondary-500 mt-1">
-                  Select from existing products or add a new one
+                  Search and select from existing products or add a new one
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Category Field */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Category *
+            </label>
+            {isEditMode ? (
+              <select
+                required
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">Select Category</option>
+                <option value="Beverages">Beverages</option>
+                <option value="Cold Beverages">Cold Beverages</option>
+                <option value="Consumable">Consumable</option>
+                <option value="Bun">Bun</option>
+                <option value="Cutlets">Cutlets</option>
+                <option value="Laddu">Laddu</option>
+                <option value="Parcel">Parcel</option>
+                <option value="Momos">Momos</option>
+                <option value="Puff & Cakes">Puff & Cakes</option>
+                <option value="Sandwich">Sandwich</option>
+                <option value="Snacks">Snacks</option>
+              </select>
+            ) : (
+              <>
+                <select
+                  required
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  disabled={!formData.product_name_id}
+                >
+                  <option value="">Select Category</option>
+                  <option value="Beverages">Beverages</option>
+                  <option value="Cold Beverages">Cold Beverages</option>
+                  <option value="Consumable">Consumable</option>
+                  <option value="Bun">Bun</option>
+                  <option value="Cutlets">Cutlets</option>
+                  <option value="Laddu">Laddu</option>
+                  <option value="Parcel">Parcel</option>
+                  <option value="Momos">Momos</option>
+                  <option value="Puff & Cakes">Puff & Cakes</option>
+                  <option value="Sandwich">Sandwich</option>
+                  <option value="Snacks">Snacks</option>
+                </select>
+                <p className="text-xs text-secondary-500 mt-1">
+                  {formData.product_name_id 
+                    ? 'Category auto-populated from product name' 
+                    : 'Select a product name first to auto-populate category'}
                 </p>
               </>
             )}
@@ -784,73 +999,160 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
           {/* Ingredients Section - Only for Manufactured and Create Mode */}
           {formData.product_type === 'manufactured' && !isEditMode && (
             <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              {/* Batch Selection */}
+              {availableBatches.length > 0 && (
+                <div className="mb-4 pb-4 border-b border-blue-200">
+                  <label className="block text-sm font-medium text-secondary-900 mb-2">
+                    Select Recipe Batch
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedBatchId || ''}
+                      onChange={(e) => handleBatchChange(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+                    >
+                      <option value="">Create New Recipe</option>
+                      {availableBatches.map((batch) => (
+                        <option key={batch.id} value={batch.id}>
+                          {batch.batch_name} (Makes {batch.producible_quantity} {formData.unit})
+                          {batch.is_default ? ' - Default' : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowManageBatches(true)}
+                      className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 whitespace-nowrap text-sm"
+                      title="Manage Recipe Batches"
+                    >
+                      <Layers className="w-4 h-4" />
+                      Manage Batches
+                    </button>
+                  </div>
+                  <p className="text-xs text-secondary-600 mt-1">
+                    {selectedBatchId 
+                      ? 'Using existing recipe batch. Ingredients are pre-filled.' 
+                      : 'Create a new recipe or select an existing batch above.'}
+                  </p>
+                </div>
+              )}
+
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-medium text-secondary-900">Recipe Ingredients *</h3>
-                <button
-                  type="button"
-                  onClick={addIngredientRow}
-                  className="text-sm px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Ingredient
-                </button>
+                <div className="flex gap-2">
+                  {availableBatches.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowManageBatches(true)}
+                      className="text-sm px-3 py-1 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                      title="Create Recipe Batches"
+                    >
+                      <Layers className="w-4 h-4" />
+                      Create Batch
+                    </button>
+                  )}
+                  {!selectedBatchId && (
+                    <button
+                      type="button"
+                      onClick={addIngredientRow}
+                      className="text-sm px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Ingredient
+                    </button>
+                  )}
+                </div>
               </div>
 
               {ingredientRows.length > 0 ? (
                 <div className="space-y-3">
-                  {ingredientRows.map((row, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="grid grid-cols-12 gap-2">
-                        <div className="col-span-5">
-                          <select
-                            value={row.raw_material_id}
-                            onChange={(e) => handleRawMaterialChange(index, e.target.value)}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                          >
-                            <option value="">Select Raw Material</option>
-                            {rawMaterials.map((material) => (
-                              <option key={material.id} value={material.id}>
-                                {material.name} ({material.quantity} {material.unit})
-                              </option>
-                            ))}
-                          </select>
+                  {ingredientRows.map((row, index) => {
+                    const material = rawMaterials.find(m => m.id === row.raw_material_id);
+                    return (
+                      <div key={index} className="space-y-2">
+                        <div className="grid grid-cols-12 gap-2">
+                          {selectedBatchId ? (
+                            // Read-only view when batch is selected
+                            <>
+                              <div className="col-span-5">
+                                <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-700">
+                                  {material?.name || 'Unknown'}
+                                </div>
+                              </div>
+                              <div className="col-span-3">
+                                <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-700">
+                                  {row.quantity_needed}
+                                </div>
+                              </div>
+                              <div className="col-span-3">
+                                <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-600">
+                                  {row.unit || '-'}
+                                </div>
+                              </div>
+                              <div className="col-span-1">
+                                <div className="px-2 py-1.5 text-sm text-center text-secondary-400">
+                                  🔒
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            // Editable view when creating new recipe
+                            <>
+                              <div className="col-span-5">
+                                <select
+                                  value={row.raw_material_id}
+                                  onChange={(e) => handleRawMaterialChange(index, e.target.value)}
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                >
+                                  <option value="">Select Raw Material</option>
+                                  {rawMaterials.map((material) => (
+                                    <option key={material.id} value={material.id}>
+                                      {material.name} ({material.quantity} {material.unit})
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="col-span-3">
+                                <input
+                                  type="text"
+                                  value={row.quantity_needed}
+                                  onChange={(e) => handleQuantityChange(index, e.target.value)}
+                                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                                  placeholder="Quantity"
+                                />
+                              </div>
+                              <div className="col-span-3">
+                                <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-600">
+                                  {row.unit || '-'}
+                                </div>
+                              </div>
+                              <div className="col-span-1">
+                                <button
+                                  type="button"
+                                  onClick={() => removeIngredientRow(index)}
+                                  className="w-full p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4 mx-auto" />
+                                </button>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <div className="col-span-3">
-                          <input
-                            type="text"
-                            value={row.quantity_needed}
-                            onChange={(e) => handleQuantityChange(index, e.target.value)}
-                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                            placeholder="Quantity"
-                          />
-                        </div>
-                        <div className="col-span-3">
-                          <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-600">
-                            {row.unit || '-'}
+                        {stockWarnings[index] && (
+                          <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                            <p className="text-xs text-yellow-800">{stockWarnings[index]}</p>
                           </div>
-                        </div>
-                        <div className="col-span-1">
-                          <button
-                            type="button"
-                            onClick={() => removeIngredientRow(index)}
-                            className="w-full p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4 mx-auto" />
-                          </button>
-                        </div>
+                        )}
                       </div>
-                      {stockWarnings[index] && (
-                        <div className="flex items-center gap-2 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
-                          <p className="text-xs text-yellow-800">{stockWarnings[index]}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-xs text-secondary-500 text-center py-4">
-                  No ingredients added yet. Click "Add Ingredient" to start.
+                  {availableBatches.length > 0 
+                    ? 'Select a batch above or create a new recipe by clicking "Create Batch"' 
+                    : 'No ingredients added yet. Click "Create Batch" or "Add Ingredient" to start.'}
                 </p>
               )}
 
@@ -859,33 +1161,44 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
                   <label className="block text-sm font-medium text-secondary-900 mb-2">
                     Recipe Yield *
                   </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-secondary-600">With the above ingredients, I can make</span>
-                    <input
-                      type="number"
-                      step="1"
-                      min="1"
-                      value={formData.producible_quantity}
-                      onChange={(e) => {
-                        const newYield = e.target.value;
-                        setFormData({ 
-                          ...formData, 
-                          producible_quantity: newYield,
-                          // Auto-populate quantity to produce with recipe yield
-                          quantity_to_add: newYield || '1'
-                        });
-                      }}
-                      className="w-24 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="50"
-                    />
-                    <span className="text-sm text-secondary-600">{formData.unit}</span>
-                  </div>
-                  <p className="text-xs text-secondary-500 mt-1">
-                    Example: "With 2L milk + tea powder + sugar, I can make 50 cups"
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1 font-medium">
-                    💡 Quantity to produce will be auto-filled with this value
-                  </p>
+                  {selectedBatchId ? (
+                    <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <span className="text-sm text-secondary-600">With the above ingredients, I can make</span>
+                      <span className="font-medium text-secondary-900">{formData.producible_quantity}</span>
+                      <span className="text-sm text-secondary-600">{formData.unit}</span>
+                      <span className="text-xs text-secondary-500 ml-2">(from selected batch)</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-secondary-600">With the above ingredients, I can make</span>
+                        <input
+                          type="number"
+                          step="1"
+                          min="1"
+                          value={formData.producible_quantity}
+                          onChange={(e) => {
+                            const newYield = e.target.value;
+                            setFormData({ 
+                              ...formData, 
+                              producible_quantity: newYield,
+                              // Auto-populate quantity to produce with recipe yield
+                              quantity_to_add: newYield || '1'
+                            });
+                          }}
+                          className="w-24 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="50"
+                        />
+                        <span className="text-sm text-secondary-600">{formData.unit}</span>
+                      </div>
+                      <p className="text-xs text-secondary-500 mt-1">
+                        Example: "With 2L milk + tea powder + sugar, I can make 50 cups"
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1 font-medium">
+                        💡 Quantity to produce will be auto-filled with this value
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1030,6 +1343,15 @@ export function ProductFormSimplified({ product, onClose }: ProductFormSimplifie
         <AddProductNameModal
           onClose={() => setShowAddProductName(false)}
           onSuccess={handleAddProductNameSuccess}
+        />
+      )}
+
+      {/* Manage Recipe Batches Modal */}
+      {showManageBatches && currentTemplateId && (
+        <ManageRecipeBatchesModal
+          productTemplateId={currentTemplateId}
+          productName={formData.product_name}
+          onClose={handleManageBatchesClose}
         />
       )}
     </div>

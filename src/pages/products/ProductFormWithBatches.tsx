@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, AlertTriangle, Layers } from 'lucide-react';
+import { X, Plus, AlertTriangle, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { AddProductNameModal } from '../product-templates/AddProductNameModal';

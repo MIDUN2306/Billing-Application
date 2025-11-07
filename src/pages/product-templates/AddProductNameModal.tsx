@@ -14,6 +14,7 @@ export function AddProductNameModal({ onClose, onSuccess }: AddProductNameModalP
   const [loading, setLoading] = useState(false);
   const [productName, setProductName] = useState('');
   const [sku, setSku] = useState('');
+  const [category, setCategory] = useState('');
 
   const generateSKU = () => {
     if (!productName.trim()) {
@@ -36,6 +37,7 @@ export function AddProductNameModal({ onClose, onSuccess }: AddProductNameModalP
         .insert([{
           name: productName.trim(),
           sku: sku.trim() || null,
+          category: category || null,
           store_id: currentStore.id,
         }])
         .select()
@@ -94,6 +96,34 @@ export function AddProductNameModal({ onClose, onSuccess }: AddProductNameModalP
             />
             <p className="text-xs text-secondary-500 mt-1">
               This name can be reused across multiple templates
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Category *
+            </label>
+            <select
+              required
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Select Category</option>
+              <option value="Beverages">Beverages</option>
+              <option value="Cold Beverages">Cold Beverages</option>
+              <option value="Consumable">Consumable</option>
+              <option value="Bun">Bun</option>
+              <option value="Cutlets">Cutlets</option>
+              <option value="Laddu">Laddu</option>
+              <option value="Parcel">Parcel</option>
+              <option value="Momos">Momos</option>
+              <option value="Puff & Cakes">Puff & Cakes</option>
+              <option value="Sandwich">Sandwich</option>
+              <option value="Snacks">Snacks</option>
+            </select>
+            <p className="text-xs text-secondary-500 mt-1">
+              Category will be auto-populated when creating products
             </p>
           </div>
 

@@ -11,6 +11,7 @@ interface Product {
   id: string;
   name: string;
   sku: string | null;
+  category: string | null;
   category_name: string | null;
   category_id: string | null;
   unit: string;
@@ -73,7 +74,7 @@ export function ProductsPage() {
 
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, name, sku, unit, mrp, quantity, product_template_id, category_id')
+        .select('id, name, sku, category, unit, mrp, quantity, product_template_id, category_id')
         .eq('store_id', storeId)
         .eq('is_active', true)
         .order('name');
@@ -141,6 +142,7 @@ export function ProductsPage() {
         id: item.id,
         name: item.name,
         sku: item.sku,
+        category: item.category || null,
         category_name: item.category_id ? categoriesMap[item.category_id] || null : null,
         category_id: item.category_id,
         unit: item.unit,
@@ -165,6 +167,7 @@ export function ProductsPage() {
           id: item.id,
           name: item.name,
           sku: item.sku,
+          category: item.category || null,
           category_name: item.category_id ? categoriesMap[item.category_id] || null : null,
           category_id: item.category_id,
           unit: item.unit,
@@ -270,6 +273,7 @@ export function ProductsPage() {
         id,
         name,
         sku,
+        category,
         unit,
         mrp,
         quantity,
@@ -295,6 +299,7 @@ export function ProductsPage() {
         id: existingProduct.id,
         name: existingProduct.name,
         sku: existingProduct.sku,
+        category: existingProduct.category || null,
         category_name: (existingProduct.categories as any)?.name || null,
         category_id: existingProduct.category_id,
         unit: existingProduct.unit,
@@ -324,6 +329,7 @@ export function ProductsPage() {
             id,
             name,
             sku,
+            category,
             unit,
             mrp,
             quantity,
@@ -344,6 +350,7 @@ export function ProductsPage() {
           id: newProduct.id,
           name: newProduct.name,
           sku: newProduct.sku,
+          category: newProduct.category || null,
           category_name: (newProduct.categories as any)?.name || null,
           category_id: newProduct.category_id,
           unit: newProduct.unit,
@@ -553,7 +560,16 @@ export function ProductsPage() {
 
               {/* SKU */}
               {product.sku && (
-                <p className="text-sm font-medium text-gray-600 mb-3">SKU: {product.sku}</p>
+                <p className="text-sm font-medium text-gray-600 mb-2">SKU: {product.sku}</p>
+              )}
+
+              {/* Category */}
+              {product.category && (
+                <p className="text-xs text-gray-500 mb-3">
+                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-medium">
+                    {product.category}
+                  </span>
+                </p>
               )}
 
               {/* Price and Stock */}

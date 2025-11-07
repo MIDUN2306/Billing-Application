@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { ProductTemplateWithDetails, ProductName } from '../../types/database.types';
 import { AddProductNameModal } from './AddProductNameModal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import toast from 'react-hot-toast';
 
 interface ProductTemplateFormProps {
@@ -367,20 +368,21 @@ export function ProductTemplateForm({ template, onClose }: ProductTemplateFormPr
               Product Name *
             </label>
             <div className="flex gap-2">
-              <select
-                required
-                value={formData.product_name_id}
-                onChange={(e) => setFormData({ ...formData, product_name_id: e.target.value })}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                disabled={!!template}
-              >
-                <option value="">Select Product Name</option>
-                {productNames.map((product) => (
-                  <option key={product.id} value={product.id}>
-                    {product.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect
+                  options={productNames.map((product) => ({
+                    value: product.id,
+                    label: product.name,
+                    subtitle: product.sku ? `SKU: ${product.sku}` : undefined,
+                    badge: product.category || undefined,
+                  }))}
+                  value={formData.product_name_id}
+                  onChange={(value) => setFormData({ ...formData, product_name_id: value })}
+                  placeholder="Select Product Name"
+                  searchPlaceholder="Search by name or SKU..."
+                  disabled={!!template}
+                />
+              </div>
               {!template && (
                 <button
                   type="button"

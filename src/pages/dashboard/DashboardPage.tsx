@@ -263,7 +263,7 @@ export function DashboardPage() {
         
         {/* 1. Sales Card */}
         <button
-          onClick={() => navigate('/sales/history')}
+          onClick={() => navigate('/sales/analytics')}
           className="group relative bg-white rounded-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-3 text-left p-6 overflow-hidden border-4 border-primary-200 hover:border-primary-700 active:scale-95"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -282,7 +282,7 @@ export function DashboardPage() {
 
         {/* 2. Tea Stock Card */}
         <button
-          onClick={() => navigate('/products')}
+          onClick={() => navigate('/tea-production-history')}
           className="group relative bg-white rounded-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-3 text-left p-6 overflow-hidden border-4 border-primary-200 hover:border-primary-700 active:scale-95"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

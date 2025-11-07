@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { ProductTemplateWithDetails, ProductIngredientWithDetails } from '../../types/database.types';
 import { ProductTemplateForm } from '../product-templates/ProductTemplateForm';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import toast from 'react-hot-toast';
 
 interface ProductFormProps {
@@ -242,21 +243,23 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
               Product Template *
             </label>
             <div className="flex gap-2">
-              <select
-                required
-                value={formData.product_template_id}
-                onChange={(e) => setFormData({ ...formData, product_template_id: e.target.value })}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                disabled={!!product}
-              >
-                <option value="">Select Product Template</option>
-                {templates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} {template.sku && `(${template.sku})`}
-                    {template.has_ingredients ? ` - ${template.ingredient_count} ingredients` : ' - Simple Product'}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <SearchableSelect
+                  options={templates.map((template) => ({
+                    value: template.id,
+                    label: template.name,
+                    subtitle: template.sku ? `SKU: ${template.sku}` : undefined,
+                    badge: template.has_ingredients 
+                      ? `${template.ingredient_count} ingredients` 
+                      : 'Simple Product',
+                  }))}
+                  value={formData.product_template_id}
+                  onChange={(value) => setFormData({ ...formData, product_template_id: value })}
+                  placeholder="Select Product Template"
+                  searchPlaceholder="Search by name or SKU..."
+                  disabled={!!product}
+                />
+              </div>
               {!product && (
                 <button
                   type="button"

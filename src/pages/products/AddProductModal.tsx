@@ -15,6 +15,7 @@ export function AddProductModal({ onClose, onSuccess }: AddProductModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
+    category: '',
     unit: 'pcs',
     mrp: '',
     quantity: '0',
@@ -44,6 +45,7 @@ export function AddProductModal({ onClose, onSuccess }: AddProductModalProps) {
       const productData = {
         name: formData.name.trim(),
         sku: formData.sku || null,
+        category: formData.category || null,
         unit: formData.unit,
         mrp: formData.mrp ? parseFloat(formData.mrp) : null,
         quantity: parseInt(formData.quantity) || 0,
@@ -99,6 +101,32 @@ export function AddProductModal({ onClose, onSuccess }: AddProductModalProps) {
               placeholder="e.g., Tea, Coffee, Biscuits"
               autoFocus
             />
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-sm font-medium text-secondary-700 mb-2">
+              Category *
+            </label>
+            <select
+              required
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            >
+              <option value="">Select Category</option>
+              <option value="Beverages">Beverages</option>
+              <option value="Cold Beverages">Cold Beverages</option>
+              <option value="Consumable">Consumable</option>
+              <option value="Bun">Bun</option>
+              <option value="Cutlets">Cutlets</option>
+              <option value="Laddu">Laddu</option>
+              <option value="Parcel">Parcel</option>
+              <option value="Momos">Momos</option>
+              <option value="Puff & Cakes">Puff & Cakes</option>
+              <option value="Sandwich">Sandwich</option>
+              <option value="Snacks">Snacks</option>
+            </select>
           </div>
 
           {/* Unit */}

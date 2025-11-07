@@ -250,6 +250,9 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
 
     setLoading(true);
     try {
+      // Get current user for logging
+      const { data: { user } } = await supabase.auth.getUser();
+
       // If product has ingredients, deduct raw materials
       if (hasIngredients && ingredients.length > 0 && producibleQuantity) {
         const batchRatio = qty / producibleQuantity;
@@ -298,6 +301,56 @@ export function RefillProductModal({ product, onClose, onSuccess }: RefillProduc
         .eq('id', product.id);
 
       if (productError) throw productError;
+
+      // Log the production event
+      const batchNameForLog = selectedDraftId 
+        ? availableDrafts.find(d => d.id === selectedDraftId)?.batch_name || 'Unknown Batch'
+        : 'Manual Addition';
+
+      const { data: productionLog, error: logError } = await supabase
+        .from('production_logs')
+        .insert([{
+          product_id: product.id,
+          product_template_id: product.product_template_id,
+          product_name: product.name,
+          recipe_batch_id: selectedDraftId || null,
+          batch_name: batchNameForLog,
+          quantity_produced: qty,
+          unit: product.unit,
+          production_date: new Date().toISOString().split('T')[0],
+          produced_by: user?.id || null,
+          store_id: currentStore.id,
+        }])
+        .select()
+        .single();
+
+      if (logError) {
+        console.error('Error logging production:', logError);
+        // Don't fail the whole operation if logging fails
+      }
+
+      // If product has ingredients and logging succeeded, log the ingredients used
+      if (productionLog && hasIngredients && ingredients.length > 0 && producibleQuantity) {
+        const batchRatio = qty / producibleQuantity;
+        
+        const ingredientLogs = ingredients.map(ingredient => ({
+          production_log_id: productionLog.id,
+          raw_material_id: ingredient.raw_material_id,
+          raw_material_name: ingredient.raw_material_name,
+          quantity_used: ingredient.quantity_needed * batchRatio,
+          unit: ingredient.unit,
+          store_id: currentStore.id,
+        }));
+        
+        const { error: ingredientsLogError } = await supabase
+          .from('production_log_ingredients')
+          .insert(ingredientLogs);
+          
+        if (ingredientsLogError) {
+          console.error('Error logging ingredients:', ingredientsLogError);
+          // Don't fail the whole operation if ingredient logging fails
+        }
+      }
 
       const actionText = hasIngredients ? 'produced and added' : 'added';
       toast.success(`Successfully ${actionText} ${qty} ${product.unit} to ${product.name}`);

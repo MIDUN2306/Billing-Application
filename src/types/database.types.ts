@@ -24,6 +24,8 @@ export type TablesUpdate<T extends keyof Database['public']['Tables']> = Databas
 export interface ProductName {
   id: string;
   name: string;
+  sku: string | null;
+  category: string | null;
   store_id: string;
   is_active: boolean;
   created_at: string;
@@ -123,4 +125,44 @@ export interface RawMaterial {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Production Log Types
+export interface ProductionLog {
+  id: string;
+  product_id: string;
+  product_template_id: string;
+  product_name: string;
+  recipe_batch_id: string | null;
+  batch_name: string;
+  quantity_produced: number;
+  unit: string;
+  produced_at: string;
+  production_date: string;
+  produced_by: string | null;
+  store_id: string;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductionLogIngredient {
+  id: string;
+  production_log_id: string;
+  raw_material_id: string;
+  raw_material_name: string;
+  quantity_used: number;
+  unit: string;
+  unit_cost: number | null;
+  total_cost: number | null;
+  store_id: string;
+  created_at: string;
+}
+
+export interface ProductionLogWithDetails extends ProductionLog {
+  ingredients: ProductionLogIngredient[];
+  produced_by_name: string | null;
+  ingredient_count: number;
+  has_ingredients: boolean;
+  template_yield: number | null;
 }
