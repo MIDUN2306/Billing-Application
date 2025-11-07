@@ -604,10 +604,10 @@ export function ProductsPage() {
                 <button
                   onClick={() => product.is_template ? handleProduce(product) : handleRefillClick(product)}
                   className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
-                  title={product.quantity === 0 ? 'Produce/Add Stock' : 'Add More Stock'}
+                  title="Produce More"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  {product.quantity === 0 ? 'Produce' : 'Refill'}
+                  Produce
                 </button>
                 <button
                   onClick={() => handleDelete(product.id, product.is_template)}

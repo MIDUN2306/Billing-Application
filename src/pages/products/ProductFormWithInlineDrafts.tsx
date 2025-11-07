@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, AlertTriangle, Layers, Save } from 'lucide-react';
+import { X, Plus, Trash2, AlertTriangle, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { AddProductNameModal } from '../product-templates/AddProductNameModal';
@@ -55,8 +55,9 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
   const [ingredientRows, setIngredientRows] = useState<IngredientRow[]>([]);
   const [stockWarnings, setStockWarnings] = useState<{ [key: number]: string }>({});
   const [showAddProductName, setShowAddProductName] = useState(false);
-  const [saveDraft, setSaveDraft] = useState(false);
-  const [draftName, setDraftName] = useState('');
+  const [showCreateBatchModal, setShowCreateBatchModal] = useState(false);
+  const [newBatchName, setNewBatchName] = useState('');
+  const [creatingBatch, setCreatingBatch] = useState(false);
   
   const [formData, setFormData] = useState({
     product_name_id: '',
@@ -339,8 +340,6 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
     setSelectedDraftId('');
     setIngredientRows([]);
     setStockWarnings({});
-    setSaveDraft(false);
-    setDraftName('');
   };
 
   const handleAddProductNameSuccess = async (newProductNameId: string) => {
@@ -501,14 +500,142 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
         toast.error('Insufficient stock for some ingredients');
         return false;
       }
-
-      if (saveDraft && !draftName.trim()) {
-        toast.error('Please enter a name for the draft');
-        return false;
-      }
     }
 
     return true;
+  };
+
+  const handleCreateBatch = async () => {
+    if (!currentStore || !formData.product_name_id) return;
+    
+    if (!newBatchName.trim()) {
+      toast.error('Please enter a batch name');
+      return;
+    }
+
+    if (ingredientRows.length === 0) {
+      toast.error('Please add ingredients before creating a batch');
+      return;
+    }
+
+    if (!formData.producible_quantity || parseFloat(formData.producible_quantity) <= 0) {
+      toast.error('Please enter producible quantity before creating a batch');
+      return;
+    }
+
+    setCreatingBatch(true);
+    try {
+      // Find or create template for this product name
+      let template;
+      const { data: existingTemplates, error: templatesError } = await supabase
+        .from('product_templates')
+        .select('*')
+        .eq('product_name_id', formData.product_name_id)
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (templatesError) throw templatesError;
+
+      if (existingTemplates && existingTemplates.length > 0) {
+        template = existingTemplates[0];
+      } else {
+        // Create new template
+        const templateData = {
+          name: formData.product_name.trim(),
+          unit: formData.unit,
+          sku: formData.sku || null,
+          mrp: formData.mrp ? parseFloat(formData.mrp) : null,
+          has_ingredients: true,
+          producible_quantity: parseFloat(formData.producible_quantity),
+          store_id: currentStore.id,
+          product_name_id: formData.product_name_id,
+        };
+
+        const { data: newTemplate, error: templateError } = await supabase
+          .from('product_templates')
+          .insert([templateData])
+          .select()
+          .single();
+
+        if (templateError) throw templateError;
+        template = newTemplate;
+      }
+
+      // Check if batch name already exists for this template
+      const { data: existingBatch, error: checkError } = await supabase
+        .from('recipe_batches')
+        .select('id')
+        .eq('product_template_id', template.id)
+        .eq('batch_name', newBatchName.trim())
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingBatch) {
+        toast.error('A batch with this name already exists');
+        return;
+      }
+
+      // Check if this is the first batch for this template
+      const { data: existingBatches, error: batchesError } = await supabase
+        .from('recipe_batches')
+        .select('id')
+        .eq('product_template_id', template.id)
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true);
+
+      if (batchesError) throw batchesError;
+
+      const isFirstBatch = !existingBatches || existingBatches.length === 0;
+
+      // Create the batch
+      const { data: newBatch, error: batchError } = await supabase
+        .from('recipe_batches')
+        .insert([{
+          product_template_id: template.id,
+          batch_name: newBatchName.trim(),
+          producible_quantity: parseFloat(formData.producible_quantity),
+          is_default: isFirstBatch,
+          store_id: currentStore.id,
+        }])
+        .select()
+        .single();
+
+      if (batchError) throw batchError;
+
+      // Insert ingredients
+      const ingredientsToInsert = ingredientRows.map(row => ({
+        recipe_batch_id: newBatch.id,
+        raw_material_id: row.raw_material_id,
+        quantity_needed: parseFloat(row.quantity_needed),
+        unit: row.unit,
+        store_id: currentStore.id,
+      }));
+
+      const { error: ingredientsError } = await supabase
+        .from('recipe_batch_ingredients')
+        .insert(ingredientsToInsert);
+
+      if (ingredientsError) throw ingredientsError;
+
+      toast.success(`Batch "${newBatchName}" created successfully!`);
+      
+      // Reset modal state
+      setShowCreateBatchModal(false);
+      setNewBatchName('');
+      
+      // Reload drafts and select the new one
+      await loadAvailableDrafts();
+      setSelectedDraftId(newBatch.id);
+    } catch (error: any) {
+      console.error('Error creating batch:', error);
+      toast.error(error.message || 'Failed to create batch');
+    } finally {
+      setCreatingBatch(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -549,40 +676,8 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
             if (templateUpdateError) throw templateUpdateError;
           }
 
-          // Handle draft saving/updating
-          if (saveDraft && draftName.trim()) {
-            // Create new draft with modified ingredients
-            const { data: newBatch, error: batchError } = await supabase
-              .from('recipe_batches')
-              .insert([{
-                product_template_id: product.product_template_id,
-                batch_name: draftName.trim(),
-                producible_quantity: parseFloat(formData.producible_quantity),
-                is_default: false,
-                store_id: currentStore.id,
-              }])
-              .select()
-              .single();
-
-            if (batchError) throw batchError;
-
-            // Insert ingredients for new draft
-            const ingredientsToInsert = ingredientRows.map(row => ({
-              recipe_batch_id: newBatch.id,
-              raw_material_id: row.raw_material_id,
-              quantity_needed: parseFloat(row.quantity_needed),
-              unit: row.unit,
-              store_id: currentStore.id,
-            }));
-
-            const { error: ingredientsError } = await supabase
-              .from('recipe_batch_ingredients')
-              .insert(ingredientsToInsert);
-
-            if (ingredientsError) throw ingredientsError;
-
-            toast.success(`Product updated and new draft "${draftName}" created successfully`);
-          } else if (selectedDraftId) {
+          // Update existing batch if selected
+          if (selectedDraftId) {
             // Update existing draft
             // Delete old ingredients
             await supabase
@@ -636,58 +731,44 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
       let template;
 
       if (isManufactured && ingredientRows.length > 0) {
-        const templateData = {
-          name: formData.product_name.trim(),
-          unit: formData.unit,
-          sku: formData.sku || null,
-          mrp: formData.mrp ? parseFloat(formData.mrp) : null,
-          has_ingredients: true,
-          producible_quantity: parseFloat(formData.producible_quantity),
-          store_id: currentStore.id,
-          product_name_id: formData.product_name_id || null,
-        };
-
-        const { data: newTemplate, error: templateError } = await supabase
+        // Check if template already exists for this product name
+        const { data: existingTemplate, error: checkError } = await supabase
           .from('product_templates')
-          .insert([templateData])
-          .select()
-          .single();
+          .select('*')
+          .eq('name', formData.product_name.trim())
+          .eq('store_id', currentStore.id)
+          .eq('is_active', true)
+          .maybeSingle();
 
-        if (templateError) throw templateError;
-        template = newTemplate;
+        if (checkError) throw checkError;
 
-        if (saveDraft && draftName.trim()) {
-          const { data: newBatch, error: batchError } = await supabase
-            .from('recipe_batches')
-            .insert([{
-              product_template_id: template.id,
-              batch_name: draftName.trim(),
-              producible_quantity: parseFloat(formData.producible_quantity),
-              is_default: availableDrafts.length === 0,
-              store_id: currentStore.id,
-            }])
+        if (existingTemplate) {
+          // Use existing template
+          template = existingTemplate;
+        } else {
+          // Create new template only if it doesn't exist
+          const templateData = {
+            name: formData.product_name.trim(),
+            unit: formData.unit,
+            sku: formData.sku || null,
+            mrp: formData.mrp ? parseFloat(formData.mrp) : null,
+            has_ingredients: true,
+            producible_quantity: parseFloat(formData.producible_quantity),
+            store_id: currentStore.id,
+            product_name_id: formData.product_name_id || null,
+          };
+
+          const { data: newTemplate, error: templateError } = await supabase
+            .from('product_templates')
+            .insert([templateData])
             .select()
             .single();
 
-          if (batchError) throw batchError;
-
-          const ingredientsToInsert = ingredientRows.map(row => ({
-            recipe_batch_id: newBatch.id,
-            raw_material_id: row.raw_material_id,
-            quantity_needed: parseFloat(row.quantity_needed),
-            unit: row.unit,
-            store_id: currentStore.id,
-          }));
-
-          const { error: ingredientsError } = await supabase
-            .from('recipe_batch_ingredients')
-            .insert(ingredientsToInsert);
-
-          if (ingredientsError) throw ingredientsError;
-
-          toast.success(`Draft "${draftName}" saved successfully`);
+          if (templateError) throw templateError;
+          template = newTemplate;
         }
 
+        // Deduct raw materials based on batch ratio
         const batchRatio = quantityToAdd / parseFloat(formData.producible_quantity);
 
         for (const row of ingredientRows) {
@@ -714,25 +795,42 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
           if (updateError) throw updateError;
         }
       } else {
-        const templateData = {
-          name: formData.product_name.trim(),
-          unit: formData.unit,
-          sku: formData.sku || null,
-          mrp: formData.mrp ? parseFloat(formData.mrp) : null,
-          has_ingredients: false,
-          producible_quantity: null,
-          store_id: currentStore.id,
-          product_name_id: formData.product_name_id || null,
-        };
-
-        const { data: newTemplate, error: templateError } = await supabase
+        // Check if template already exists for this product name (simple product)
+        const { data: existingTemplate, error: checkError } = await supabase
           .from('product_templates')
-          .insert([templateData])
-          .select()
-          .single();
+          .select('*')
+          .eq('name', formData.product_name.trim())
+          .eq('store_id', currentStore.id)
+          .eq('is_active', true)
+          .maybeSingle();
 
-        if (templateError) throw templateError;
-        template = newTemplate;
+        if (checkError) throw checkError;
+
+        if (existingTemplate) {
+          // Use existing template
+          template = existingTemplate;
+        } else {
+          // Create new template only if it doesn't exist
+          const templateData = {
+            name: formData.product_name.trim(),
+            unit: formData.unit,
+            sku: formData.sku || null,
+            mrp: formData.mrp ? parseFloat(formData.mrp) : null,
+            has_ingredients: false,
+            producible_quantity: null,
+            store_id: currentStore.id,
+            product_name_id: formData.product_name_id || null,
+          };
+
+          const { data: newTemplate, error: templateError } = await supabase
+            .from('product_templates')
+            .insert([templateData])
+            .select()
+            .single();
+
+          if (templateError) throw templateError;
+          template = newTemplate;
+        }
       }
 
       const productData = {
@@ -944,33 +1042,18 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                 </div>
               )}
 
-              {ingredientRows.length > 0 && (
+              {ingredientRows.length > 0 && formData.producible_quantity && (
                 <div className="mt-4 pt-4 border-t border-blue-200">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={saveDraft}
-                      onChange={(e) => setSaveDraft(e.target.checked)}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <Save className="w-4 h-4 text-secondary-600" />
-                    <span className="text-sm font-medium text-secondary-900">
-                      Save as new draft
-                    </span>
-                  </label>
-                  {saveDraft && (
-                    <input
-                      type="text"
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      className="mt-2 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Enter new draft name (e.g., Modified Recipe, Large Batch v2)"
-                    />
-                  )}
-                  <p className="text-xs text-secondary-500 mt-2">
-                    {saveDraft 
-                      ? '💡 This will create a new draft without modifying the existing one' 
-                      : '💡 Changes will update the current draft, or check above to save as new draft'}
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateBatchModal(true)}
+                    className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Layers className="w-4 h-4" />
+                    Create Batch
+                  </button>
+                  <p className="text-xs text-secondary-500 mt-2 text-center">
+                    💡 Save this ingredient combination as a batch to reuse it later
                   </p>
                 </div>
               )}
@@ -1142,31 +1225,18 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                 </div>
               )}
 
-              {ingredientRows.length > 0 && (
+              {ingredientRows.length > 0 && !selectedDraftId && formData.producible_quantity && (
                 <div className="mt-4 pt-4 border-t border-blue-200">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={saveDraft}
-                      onChange={(e) => setSaveDraft(e.target.checked)}
-                      className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                    />
-                    <Save className="w-4 h-4 text-secondary-600" />
-                    <span className="text-sm font-medium text-secondary-900">
-                      Save as draft for future use
-                    </span>
-                  </label>
-                  {saveDraft && (
-                    <input
-                      type="text"
-                      value={draftName}
-                      onChange={(e) => setDraftName(e.target.value)}
-                      className="mt-2 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      placeholder="Enter draft name (e.g., Small Batch, 2L Milk Recipe)"
-                    />
-                  )}
-                  <p className="text-xs text-secondary-500 mt-2">
-                    💡 Save this ingredient combination to reuse it later
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateBatchModal(true)}
+                    className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Layers className="w-4 h-4" />
+                    Create Batch
+                  </button>
+                  <p className="text-xs text-secondary-500 mt-2 text-center">
+                    💡 Save this ingredient combination as a batch to reuse it later
                   </p>
                 </div>
               )}
@@ -1306,6 +1376,89 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
           onClose={() => setShowAddProductName(false)}
           onSuccess={handleAddProductNameSuccess}
         />
+      )}
+
+      {showCreateBatchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-display font-bold text-secondary-900 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-purple-600" />
+                Create Batch
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCreateBatchModal(false);
+                  setNewBatchName('');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                disabled={creatingBatch}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-secondary-700 mb-2">
+                  Batch Name *
+                </label>
+                <input
+                  type="text"
+                  value={newBatchName}
+                  onChange={(e) => setNewBatchName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  placeholder="e.g., Small Batch, 2L Milk Recipe"
+                  autoFocus
+                  disabled={creatingBatch}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !creatingBatch) {
+                      handleCreateBatch();
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <p className="text-xs text-secondary-700 mb-2">
+                  <strong>This batch will include:</strong>
+                </p>
+                <ul className="text-xs text-secondary-600 space-y-1">
+                  <li>• {ingredientRows.length} ingredient{ingredientRows.length !== 1 ? 's' : ''}</li>
+                  <li>• Makes {formData.producible_quantity} {formData.unit}</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateBatchModal(false);
+                    setNewBatchName('');
+                  }}
+                  className="btn-secondary"
+                  disabled={creatingBatch}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateBatch}
+                  className="btn-primary flex items-center gap-2"
+                  disabled={creatingBatch || !newBatchName.trim()}
+                >
+                  {creatingBatch ? (
+                    <>Creating...</>
+                  ) : (
+                    <>
+                      <Layers className="w-4 h-4" />
+                      Create Batch
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
