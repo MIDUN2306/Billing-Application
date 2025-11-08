@@ -18,11 +18,6 @@ interface SalesData {
   transaction_count: number;
 }
 
-interface PreparationData {
-  total_stock: number;
-  products_count: number;
-}
-
 interface InventoryData {
   total_products: number;
   low_stock_count: number;
@@ -54,8 +49,6 @@ export function DashboardPage() {
   
   // Card data states
   const [salesData, setSalesData] = useState<SalesData>({ total_amount: 0, transaction_count: 0 });
-  const [teaData, setTeaData] = useState<PreparationData>({ total_stock: 0, products_count: 0 });
-  const [coffeeData, setCoffeeData] = useState<PreparationData>({ total_stock: 0, products_count: 0 });
   const [inventoryData, setInventoryData] = useState<InventoryData>({ total_products: 0, low_stock_count: 0, out_of_stock_count: 0 });
   const [salaryData, setSalaryData] = useState<SalaryData>({ total_paid: 0, employees_paid: 0 });
   const [employeeData, setEmployeeData] = useState<EmployeeData>({ total_employees: 0, active_employees: 0 });
@@ -76,8 +69,6 @@ export function DashboardPage() {
       // Load all data in parallel
       const [
         salesRes,
-        teaProductsRes,
-        coffeeProductsRes,
         inventoryRes,
         pettyCashRes,
         employeesRes
@@ -90,22 +81,6 @@ export function DashboardPage() {
           .eq('status', 'completed')
           .gte('sale_date', today)
           .lte('sale_date', today + 'T23:59:59'),
-        
-        // Tea products
-        supabase
-          .from('products')
-          .select('quantity, name')
-          .eq('store_id', currentStore.id)
-          .ilike('name', '%tea%')
-          .eq('is_active', true),
-        
-        // Coffee products
-        supabase
-          .from('products')
-          .select('quantity, name')
-          .eq('store_id', currentStore.id)
-          .ilike('name', '%coffee%')
-          .eq('is_active', true),
         
         // Inventory
         supabase
@@ -134,24 +109,6 @@ export function DashboardPage() {
         setSalesData({
           total_amount: totalSales,
           transaction_count: salesRes.data?.length || 0
-        });
-      }
-
-      // Process Tea Data
-      if (!teaProductsRes.error) {
-        const totalTea = teaProductsRes.data?.reduce((sum, p) => sum + p.quantity, 0) || 0;
-        setTeaData({
-          total_stock: totalTea,
-          products_count: teaProductsRes.data?.length || 0
-        });
-      }
-
-      // Process Coffee Data
-      if (!coffeeProductsRes.error) {
-        const totalCoffee = coffeeProductsRes.data?.reduce((sum, p) => sum + p.quantity, 0) || 0;
-        setCoffeeData({
-          total_stock: totalCoffee,
-          products_count: coffeeProductsRes.data?.length || 0
         });
       }
 
