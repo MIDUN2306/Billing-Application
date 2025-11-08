@@ -23,6 +23,8 @@ import { PettyCashPage } from './pages/petty-cash/PettyCashPage';
 import { ProductsPage } from './pages/products/ProductsPage';
 import { CategoriesPage } from './pages/categories/CategoriesPage';
 import { RawMaterialsPage } from './pages/raw-materials/RawMaterialsPage';
+import { InventoryOverviewPage } from './pages/inventory/InventoryOverviewPage';
+import { RawMaterialsInventoryPage } from './pages/inventory/RawMaterialsInventoryPage';
 import { AdminPage } from './pages/admin/AdminPage';
 
 function App() {
@@ -72,6 +74,8 @@ function App() {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/categories" element={<CategoriesPage />} />
             <Route path="/raw-materials" element={<RawMaterialsPage />} />
+            <Route path="/inventory" element={<InventoryOverviewPage />} />
+            <Route path="/inventory/raw-materials" element={<RawMaterialsInventoryPage />} />
             
             {/* Manager+ Routes */}
             <Route element={<ProtectedRoute requiredRole="manager" />}>

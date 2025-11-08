@@ -68,14 +68,14 @@ export function SalesAnalyticsPage() {
         .select('given_date, amount')
         .eq('store_id', currentStore.id)
         .gte('given_date', startDate)
-        .lte('given_date', endDate);
+        .lte('given_date', endDate + 'T23:59:59');
 
       const rawMaterialsQuery = supabase
         .from('raw_material_purchases')
         .select('purchase_date, total_cost')
         .eq('store_id', currentStore.id)
         .gte('purchase_date', startDate)
-        .lte('purchase_date', endDate);
+        .lte('purchase_date', endDate + 'T23:59:59');
 
       // Load payment methods summary
       const paymentQuery = supabase
@@ -98,6 +98,13 @@ export function SalesAnalyticsPage() {
       if (rawMaterialsRes.error) throw rawMaterialsRes.error;
       if (paymentRes.error) throw paymentRes.error;
 
+      // Debug logging
+      console.log('📊 Analytics Data Debug:');
+      console.log('Date Range:', startDate, 'to', endDate);
+      console.log('Sales Records:', salesRes.data?.length || 0);
+      console.log('Petty Cash Records:', pettyCashRes.data?.length || 0, pettyCashRes.data);
+      console.log('Raw Materials Records:', rawMaterialsRes.data?.length || 0, rawMaterialsRes.data);
+
       // Process daily data
       const dailyMap = new Map<string, { sales: number; expenses: number }>();
       
@@ -111,19 +118,30 @@ export function SalesAnalyticsPage() {
 
       // Aggregate petty cash by date
       pettyCashRes.data?.forEach(pc => {
-        const date = pc.given_date;
+        const date = pc.given_date.split('T')[0]; // Ensure date format consistency
         const current = dailyMap.get(date) || { sales: 0, expenses: 0 };
-        current.expenses += Number(pc.amount);
+        const amount = Number(pc.amount);
+        current.expenses += amount;
         dailyMap.set(date, current);
+        console.log('💵 Petty Cash:', date, '₹' + amount);
       });
 
       // Aggregate raw materials by date
       rawMaterialsRes.data?.forEach(rm => {
-        const date = new Date(rm.purchase_date).toISOString().split('T')[0];
+        const date = rm.purchase_date.split('T')[0]; // Ensure date format consistency
         const current = dailyMap.get(date) || { sales: 0, expenses: 0 };
-        current.expenses += Number(rm.total_cost);
+        const cost = Number(rm.total_cost);
+        current.expenses += cost;
         dailyMap.set(date, current);
+        console.log('📦 Raw Material:', date, '₹' + cost);
       });
+
+      // Debug: Show daily map before conversion
+      console.log('📅 Daily Map:', Array.from(dailyMap.entries()).map(([date, data]) => ({
+        date,
+        sales: data.sales,
+        expenses: data.expenses
+      })));
 
       // Convert to array and calculate profit/loss
       const dailyArray: DailyData[] = Array.from(dailyMap.entries())
@@ -134,6 +152,16 @@ export function SalesAnalyticsPage() {
           profit_loss: data.sales - data.expenses,
         }))
         .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Debug: Calculate totals
+      const totalSales = dailyArray.reduce((sum, d) => sum + d.sales, 0);
+      const totalExpenses = dailyArray.reduce((sum, d) => sum + d.expenses, 0);
+      console.log('💰 Totals:', {
+        sales: totalSales,
+        expenses: totalExpenses,
+        profit: totalSales - totalExpenses,
+        days: dailyArray.length
+      });
 
       setDailyData(dailyArray);
 

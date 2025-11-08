@@ -23,14 +23,14 @@ interface PaymentModalProps {
 export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: PaymentModalProps) {
   const { currentStore } = useStoreStore();
   const { profile } = useAuthStore();
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'upi' | 'credit'>('cash');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'upi'>('cash');
   const [amountReceived, setAmountReceived] = useState(totals.total);
   const [processing, setProcessing] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [completedSaleData, setCompletedSaleData] = useState<any>(null);
 
   const change = paymentMethod === 'cash' ? Math.max(0, amountReceived - totals.total) : 0;
-  const canComplete = paymentMethod === 'credit' || amountReceived >= totals.total;
+  const canComplete = amountReceived >= totals.total;
 
   const completeSale = async () => {
     if (!canComplete) {
@@ -56,7 +56,7 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
         discount_amount: totals.discount,
         tax_amount: totals.tax,
         total_amount: totals.total,
-        paid_amount: paymentMethod === 'credit' ? 0 : totals.total,
+        paid_amount: totals.total,
         payment_method: paymentMethod,
         status: 'completed',
         created_by: profile!.id,
@@ -92,35 +92,33 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
       // Note: Stock deduction is handled automatically by the database trigger
       // 'update_inventory_on_sale' which updates inventory and creates stock movements
 
-      // Create payment record if not credit
-      if (paymentMethod !== 'credit') {
-        // Generate payment number
-        const { data: paymentNumber, error: paymentNumError } = await supabase
-          .rpc('generate_payment_number', { p_store_id: currentStore!.id });
+      // Create payment record
+      // Generate payment number
+      const { data: paymentNumber, error: paymentNumError } = await supabase
+        .rpc('generate_payment_number', { p_store_id: currentStore!.id });
 
-        if (paymentNumError) {
-          console.error('Payment number generation error:', paymentNumError);
-          // Continue without payment number if generation fails
-        }
-
-        const paymentData = {
-          store_id: currentStore!.id,
-          payment_number: paymentNumber || `PAY-${Date.now()}`,
-          payment_type: 'sale',
-          reference_id: sale.id,
-          customer_id: customer?.id || null,
-          amount: totals.total,
-          payment_method: paymentMethod,
-          payment_date: new Date().toISOString().split('T')[0],
-          created_by: profile!.id,
-        };
-
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .insert(paymentData);
-
-        if (paymentError) throw paymentError;
+      if (paymentNumError) {
+        console.error('Payment number generation error:', paymentNumError);
+        // Continue without payment number if generation fails
       }
+
+      const paymentData = {
+        store_id: currentStore!.id,
+        payment_number: paymentNumber || `PAY-${Date.now()}`,
+        payment_type: 'sale',
+        reference_id: sale.id,
+        customer_id: customer?.id || null,
+        amount: totals.total,
+        payment_method: paymentMethod,
+        payment_date: new Date().toISOString().split('T')[0],
+        created_by: profile!.id,
+      };
+
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert(paymentData);
+
+      if (paymentError) throw paymentError;
 
       toast.success('Sale completed successfully!');
       
@@ -260,25 +258,7 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
                 <Smartphone className="w-6 h-6" />
                 <span className="text-sm font-medium">UPI</span>
               </button>
-
-              <button
-                onClick={() => setPaymentMethod('credit')}
-                className={`p-3 border-2 rounded-lg flex flex-col items-center gap-2 transition-colors ${
-                  paymentMethod === 'credit'
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                disabled={!customer}
-              >
-                <CreditCard className="w-6 h-6" />
-                <span className="text-sm font-medium">Credit</span>
-              </button>
             </div>
-            {paymentMethod === 'credit' && !customer && (
-              <p className="text-xs text-red-600 mt-1">
-                Please select a customer for credit sales
-              </p>
-            )}
           </div>
 
           {/* Amount Received (for cash) */}

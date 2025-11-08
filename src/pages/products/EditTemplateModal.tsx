@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, Layers, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
+import { RecipeBatch } from '../../types/database.types';
 import toast from 'react-hot-toast';
 
 interface EditTemplateModalProps {
@@ -30,11 +31,17 @@ interface Ingredient {
   unit: string;
 }
 
+interface BatchWithIngredients extends RecipeBatch {
+  ingredients: Ingredient[];
+}
+
 export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplateModalProps) {
   const { currentStore } = useStoreStore();
   const [loading, setLoading] = useState(false);
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [batches, setBatches] = useState<BatchWithIngredients[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [formData, setFormData] = useState({
     name: template.name,
     sku: template.sku || '',
@@ -45,7 +52,7 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
 
   useEffect(() => {
     loadRawMaterials();
-    loadIngredients();
+    loadBatches();
   }, []);
 
   const loadRawMaterials = async () => {
@@ -83,27 +90,64 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
     }
   };
 
-  const loadIngredients = async () => {
+  const loadBatches = async () => {
     if (!currentStore) return;
 
     try {
-      const { data, error } = await supabase
-        .from('product_ingredients')
-        .select('raw_material_id, quantity_needed, unit')
+      const { data: batchesData, error: batchesError } = await supabase
+        .from('recipe_batches')
+        .select('*')
         .eq('product_template_id', template.id)
-        .eq('store_id', currentStore.id);
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .order('batch_name');
 
-      if (error) throw error;
+      if (batchesError) throw batchesError;
 
-      const ingredientList = (data || []).map((item: any) => ({
-        raw_material_id: item.raw_material_id,
-        quantity_needed: item.quantity_needed.toString(),
-        unit: item.unit,
-      }));
+      if (!batchesData || batchesData.length === 0) {
+        setBatches([]);
+        setIngredients([]);
+        return;
+      }
 
-      setIngredients(ingredientList);
+      const batchesWithIngredients: BatchWithIngredients[] = await Promise.all(
+        batchesData.map(async (batch) => {
+          const { data: ingredients, error: ingredientsError } = await supabase
+            .from('recipe_batch_ingredients')
+            .select('*')
+            .eq('recipe_batch_id', batch.id)
+            .eq('store_id', currentStore.id);
+
+          if (ingredientsError) throw ingredientsError;
+
+          const ingredientList = (ingredients || []).map((item: any) => ({
+            raw_material_id: item.raw_material_id,
+            quantity_needed: item.quantity_needed.toString(),
+            unit: item.unit,
+          }));
+
+          return {
+            ...batch,
+            ingredients: ingredientList,
+          };
+        })
+      );
+
+      setBatches(batchesWithIngredients);
+      
+      // Auto-select the first (default) batch
+      if (batchesWithIngredients.length > 0) {
+        const defaultBatch = batchesWithIngredients[0];
+        setSelectedBatchId(defaultBatch.id);
+        setIngredients(defaultBatch.ingredients);
+        setFormData(prev => ({
+          ...prev,
+          producible_quantity: defaultBatch.producible_quantity.toString(),
+        }));
+      }
     } catch (error) {
-      console.error('Error loading ingredients:', error);
+      console.error('Error loading batches:', error);
     }
   };
 
@@ -130,12 +174,80 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
     setIngredients(newIngredients);
   };
 
+  const handleBatchChange = (batchId: string) => {
+    const batch = batches.find(b => b.id === batchId);
+    if (batch) {
+      setSelectedBatchId(batchId);
+      setIngredients(batch.ingredients);
+      setFormData(prev => ({
+        ...prev,
+        producible_quantity: batch.producible_quantity.toString(),
+      }));
+    }
+  };
+
+  const handleSetDefault = async (batchId: string) => {
+    if (!currentStore) return;
+
+    try {
+      // Unset all defaults for this template
+      await supabase
+        .from('recipe_batches')
+        .update({ is_default: false })
+        .eq('product_template_id', template.id)
+        .eq('store_id', currentStore.id);
+
+      // Set the selected batch as default
+      const { error } = await supabase
+        .from('recipe_batches')
+        .update({ is_default: true })
+        .eq('id', batchId);
+
+      if (error) throw error;
+
+      toast.success('Default batch updated');
+      loadBatches();
+    } catch (error: any) {
+      console.error('Error setting default batch:', error);
+      toast.error(error.message || 'Failed to set default batch');
+    }
+  };
+
+  const handleDeleteBatch = async (batchId: string) => {
+    if (batches.length === 1) {
+      toast.error('Cannot delete the last batch. At least one batch is required.');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this batch?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('recipe_batches')
+        .update({ is_active: false })
+        .eq('id', batchId);
+
+      if (error) throw error;
+
+      toast.success('Batch deleted successfully');
+      loadBatches();
+    } catch (error: any) {
+      console.error('Error deleting batch:', error);
+      toast.error(error.message || 'Failed to delete batch');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentStore) return;
 
     if (!formData.name.trim()) {
       toast.error('Please enter template name');
+      return;
+    }
+
+    if (!selectedBatchId) {
+      toast.error('Please select a batch to edit');
       return;
     }
 
@@ -173,17 +285,26 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
 
       if (templateError) throw templateError;
 
-      // Delete old ingredients
-      const { error: deleteError } = await supabase
-        .from('product_ingredients')
+      // Update the selected batch
+      const { error: batchUpdateError } = await supabase
+        .from('recipe_batches')
+        .update({
+          producible_quantity: parseFloat(formData.producible_quantity),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedBatchId);
+
+      if (batchUpdateError) throw batchUpdateError;
+
+      // Delete old batch ingredients
+      await supabase
+        .from('recipe_batch_ingredients')
         .delete()
-        .eq('product_template_id', template.id);
+        .eq('recipe_batch_id', selectedBatchId);
 
-      if (deleteError) throw deleteError;
-
-      // Insert new ingredients
+      // Insert new batch ingredients
       const ingredientsToInsert = ingredients.map(ing => ({
-        product_template_id: template.id,
+        recipe_batch_id: selectedBatchId,
         raw_material_id: ing.raw_material_id,
         quantity_needed: parseFloat(ing.quantity_needed),
         unit: ing.unit,
@@ -191,12 +312,12 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
       }));
 
       const { error: ingredientsError } = await supabase
-        .from('product_ingredients')
+        .from('recipe_batch_ingredients')
         .insert(ingredientsToInsert);
 
       if (ingredientsError) throw ingredientsError;
 
-      toast.success('Recipe template updated successfully');
+      toast.success('Recipe template and batch updated successfully');
       onSuccess();
     } catch (error: any) {
       console.error('Error updating template:', error);
@@ -239,6 +360,91 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
             />
           </div>
 
+          {/* Batch Selector */}
+          {batches.length > 0 && (
+            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Layers className="w-5 h-5 text-purple-600" />
+                <h3 className="text-sm font-medium text-secondary-900">
+                  {batches.length > 1 ? 'Select Batch to Edit' : 'Current Batch'}
+                </h3>
+              </div>
+              
+              <div className="space-y-3">
+                {batches.map((batch) => (
+                  <div
+                    key={batch.id}
+                    className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                      selectedBatchId === batch.id
+                        ? 'border-purple-500 bg-purple-100'
+                        : 'border-gray-300 bg-white hover:border-purple-300'
+                    }`}
+                    onClick={() => handleBatchChange(batch.id)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-secondary-900">
+                              {batch.batch_name}
+                            </span>
+                            {batch.is_default && (
+                              <span className="px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full">
+                                Default
+                              </span>
+                            )}
+                            {selectedBatchId === batch.id && (
+                              <span className="px-2 py-0.5 bg-green-600 text-white text-xs rounded-full">
+                                Editing
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-secondary-600 mt-1">
+                            Makes {batch.producible_quantity} {formData.unit} • {batch.ingredients.length} ingredients
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {!batch.is_default && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetDefault(batch.id);
+                            }}
+                            className="p-1.5 text-purple-600 hover:bg-purple-200 rounded transition-colors"
+                            title="Set as default"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                        )}
+                        {batches.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBatch(batch.id);
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-100 rounded transition-colors"
+                            title="Delete batch"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <p className="text-xs text-purple-600 mt-3">
+                💡 {batches.length > 1 
+                  ? 'Click on a batch to edit its ingredients and quantities below' 
+                  : 'Edit the batch ingredients and quantities below'}
+              </p>
+            </div>
+          )}
+
           {/* Unit and Recipe Yield */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -277,6 +483,9 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 placeholder="20"
               />
+              <p className="text-xs text-secondary-500 mt-1">
+                How many {formData.unit} this batch makes
+              </p>
             </div>
           </div>
 
@@ -311,70 +520,92 @@ export function EditTemplateModal({ template, onClose, onSuccess }: EditTemplate
             </div>
           </div>
 
-          {/* Ingredients */}
-          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-secondary-900">Recipe Ingredients *</h3>
-              <button
-                type="button"
-                onClick={addIngredient}
-                className="text-sm px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Add Ingredient
-              </button>
-            </div>
+          {/* Batch Ingredients */}
+          {selectedBatchId && (
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-medium text-secondary-900">Edit Batch Ingredients *</h3>
+                  {batches.length > 0 && (
+                    <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                      {batches.find(b => b.id === selectedBatchId)?.batch_name || 'Batch'}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={addIngredient}
+                  className="text-sm px-3 py-1 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Ingredient
+                </button>
+              </div>
 
-            {ingredients.length > 0 ? (
-              <div className="space-y-3">
-                {ingredients.map((ingredient, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-2">
-                    <div className="col-span-5">
-                      <select
-                        value={ingredient.raw_material_id}
-                        onChange={(e) => updateIngredient(index, 'raw_material_id', e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                      >
-                        <option value="">Select Raw Material</option>
-                        {rawMaterials.map((material) => (
-                          <option key={material.id} value={material.id}>
-                            {material.name} ({material.quantity} {material.unit})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-3">
-                      <input
-                        type="text"
-                        value={ingredient.quantity_needed}
-                        onChange={(e) => updateIngredient(index, 'quantity_needed', e.target.value)}
-                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                        placeholder="Quantity"
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-600">
-                        {ingredient.unit || '-'}
+              <p className="text-xs text-secondary-600 mb-3 bg-white rounded px-2 py-1.5 border border-blue-200">
+                ✏️ Edit ingredient quantities below. Changes will be saved to the batch template.
+              </p>
+
+              {ingredients.length > 0 ? (
+                <div className="space-y-3">
+                  {ingredients.map((ingredient, index) => (
+                    <div key={index} className="grid grid-cols-12 gap-2">
+                      <div className="col-span-5">
+                        <select
+                          value={ingredient.raw_material_id}
+                          onChange={(e) => updateIngredient(index, 'raw_material_id', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                        >
+                          <option value="">Select Raw Material</option>
+                          {rawMaterials.map((material) => (
+                            <option key={material.id} value={material.id}>
+                              {material.name} ({material.quantity} {material.unit})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          type="text"
+                          value={ingredient.quantity_needed}
+                          onChange={(e) => updateIngredient(index, 'quantity_needed', e.target.value)}
+                          className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                          placeholder="Quantity"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <div className="px-2 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded-lg text-secondary-600">
+                          {ingredient.unit || '-'}
+                        </div>
+                      </div>
+                      <div className="col-span-1">
+                        <button
+                          type="button"
+                          onClick={() => removeIngredient(index)}
+                          className="w-full p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4 mx-auto" />
+                        </button>
                       </div>
                     </div>
-                    <div className="col-span-1">
-                      <button
-                        type="button"
-                        onClick={() => removeIngredient(index)}
-                        className="w-full p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 mx-auto" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-secondary-500 text-center py-4">
-                No ingredients added yet. Click "Add Ingredient" to start.
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-secondary-500 text-center py-4">
+                  No ingredients added yet. Click "Add Ingredient" to start.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!selectedBatchId && batches.length === 0 && (
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
+              <Layers className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-secondary-600">
+                No batches found for this template. Please create a batch first.
               </p>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">

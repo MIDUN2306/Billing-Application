@@ -16,9 +16,15 @@ interface Props {
 
 export function PaymentMethodsPieChart({ data, loading, onSegmentClick }: Props) {
   const chartData = useMemo(() => {
-    if (!data || data.length === 0) return null;
+    console.log('💳 Payment Methods Chart Data:', data);
+    
+    if (!data || data.length === 0) {
+      console.log('⚠️ No payment data available');
+      return null;
+    }
 
     const total = data.reduce((sum, item) => sum + Number(item.total_amount), 0);
+    console.log('💰 Total Payment Amount:', total);
     
     let currentAngle = -90; // Start from top
     const segments = data.map(item => {
@@ -29,6 +35,9 @@ export function PaymentMethodsPieChart({ data, loading, onSegmentClick }: Props)
       const endAngle = currentAngle + angle;
       currentAngle = endAngle;
 
+      const color = getPaymentMethodColor(item.payment_method);
+      console.log(`🎨 ${item.payment_method} -> Color: ${color}`);
+      
       return {
         method: item.payment_method,
         amount: value,
@@ -36,11 +45,12 @@ export function PaymentMethodsPieChart({ data, loading, onSegmentClick }: Props)
         percentage,
         startAngle,
         endAngle,
-        color: getPaymentMethodColor(item.payment_method),
+        color,
         label: getPaymentMethodLabel(item.payment_method),
       };
     });
 
+    console.log('📊 Chart Segments:', segments);
     return { segments, total };
   }, [data]);
 

@@ -989,11 +989,13 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
             )}
           </div>
 
-          {isEditMode && formData.product_name_id && availableDrafts.length > 1 && (
+          {isEditMode && formData.product_name_id && availableDrafts.length > 0 && (
             <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
               <div className="flex items-center gap-2 mb-3">
                 <Layers className="w-5 h-5 text-purple-600" />
-                <h3 className="text-sm font-medium text-secondary-900">Switch Recipe Draft (Optional)</h3>
+                <h3 className="text-sm font-medium text-secondary-900">
+                  {availableDrafts.length > 1 ? 'Switch Recipe Batch (Optional)' : 'Current Recipe Batch'}
+                </h3>
               </div>
               <select
                 value={selectedDraftId}
@@ -1008,7 +1010,9 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                 ))}
               </select>
               <p className="text-xs text-purple-600 mt-2">
-                💡 Switch to a different draft to load its ingredients, or edit the current one below
+                💡 {availableDrafts.length > 1 
+                  ? 'Switch to a different batch to load its ingredients, or edit the current one below' 
+                  : 'Edit the batch ingredients below if needed'}
               </p>
             </div>
           )}
@@ -1018,10 +1022,10 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <Layers className="w-5 h-5 text-blue-600" />
-                  <h3 className="text-sm font-medium text-secondary-900">Recipe Ingredients</h3>
+                  <h3 className="text-sm font-medium text-secondary-900">Edit Batch Ingredients</h3>
                   {selectedDraftId && availableDrafts.length > 0 && (
                     <span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                      {availableDrafts.find(d => d.id === selectedDraftId)?.batch_name || 'Draft'}
+                      {availableDrafts.find(d => d.id === selectedDraftId)?.batch_name || 'Batch'}
                     </span>
                   )}
                 </div>
@@ -1034,6 +1038,10 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                   Add Ingredient
                 </button>
               </div>
+
+              <p className="text-xs text-secondary-600 mb-3 bg-white rounded px-2 py-1.5 border border-blue-200">
+                ✏️ Edit ingredient quantities below. Changes will be saved to the batch template when you update.
+              </p>
 
               <div className="space-y-3">
                 {ingredientRows.map((row, index) => (
@@ -1084,7 +1092,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
               {ingredientRows.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-blue-200">
                   <label className="block text-sm font-medium text-secondary-900 mb-2">
-                    Recipe Yield
+                    Recipe Yield (Producible Quantity)
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-secondary-600">With the above ingredients, I can make</span>
@@ -1104,10 +1112,13 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                     />
                     <span className="text-sm text-secondary-600">{formData.unit}</span>
                   </div>
+                  <p className="text-xs text-secondary-500 mt-1">
+                    💡 This will update the batch template's yield quantity
+                  </p>
                 </div>
               )}
 
-              {ingredientRows.length > 0 && formData.producible_quantity && (
+              {ingredientRows.length > 0 && formData.producible_quantity && !selectedDraftId && (
                 <div className="mt-4 pt-4 border-t border-blue-200">
                   <button
                     type="button"
@@ -1115,10 +1126,10 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                     className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
                   >
                     <Layers className="w-4 h-4" />
-                    Create Batch
+                    Save as New Batch
                   </button>
                   <p className="text-xs text-secondary-500 mt-2 text-center">
-                    💡 Save this ingredient combination as a batch to reuse it later
+                    💡 Save this ingredient combination as a new batch template
                   </p>
                 </div>
               )}
@@ -1129,10 +1140,10 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="flex items-center gap-2 mb-3">
                 <Layers className="w-5 h-5 text-gray-600" />
-                <h3 className="text-sm font-medium text-secondary-900">Add Recipe Ingredients</h3>
+                <h3 className="text-sm font-medium text-secondary-900">Add Recipe Batch</h3>
               </div>
               <p className="text-sm text-secondary-600 mb-3">
-                This product doesn't have ingredients yet. You can add them now.
+                This product doesn't have a recipe batch yet. You can load an existing batch or create a new one.
               </p>
               {availableDrafts.length > 0 ? (
                 <>
@@ -1141,7 +1152,7 @@ export function ProductFormWithInlineDrafts({ product, onClose }: ProductFormWit
                     onChange={(e) => handleLoadDraft(e.target.value)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent mb-3"
                   >
-                    <option value="">Select a draft to load ingredients</option>
+                    <option value="">Select a batch to load ingredients</option>
                     {availableDrafts.map((draft) => (
                       <option key={draft.id} value={draft.id}>
                         {draft.batch_name} - Makes {draft.producible_quantity} {formData.unit} ({draft.ingredient_count} ingredients)

@@ -320,7 +320,7 @@ export function DashboardPage() {
 
         {/* 4. Inventory Card */}
         <button
-          onClick={() => navigate('/products')}
+          onClick={() => navigate('/inventory')}
           className="group relative bg-white rounded-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-3 text-left p-6 overflow-hidden border-4 border-primary-200 hover:border-primary-700 active:scale-95"
         >
           <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
