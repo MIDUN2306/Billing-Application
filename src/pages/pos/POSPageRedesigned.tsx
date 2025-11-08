@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
 import { 
-  Search, Plus, Minus, User, RotateCw, X, ShoppingCart, 
+  Search, Plus, User, RotateCw, ShoppingCart, 
   Tag, Package, Coffee, Utensils, Grid3x3
 } from 'lucide-react';
 import { CustomerSelector } from './CustomerSelector';
@@ -55,7 +55,6 @@ export function POSPageRedesigned() {
   // Modal States
   const [showCustomerSelector, setShowCustomerSelector] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showMobileCart, setShowMobileCart] = useState(false);
 
   // Load categories with product counts
   const loadCategories = useCallback(async () => {
@@ -217,35 +216,6 @@ export function POSPageRedesigned() {
       setCart([...cart, { ...product, quantity: 1, discount: 0 }]);
       toast.success(`Added ${product.name} to cart`);
     }
-  };
-
-  const updateQuantity = (productId: string, quantity: number) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-
-    if (quantity > product.quantity) {
-      toast.error('Not enough stock available');
-      return;
-    }
-
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
-
-    setCart(cart.map(item =>
-      item.id === productId ? { ...item, quantity } : item
-    ));
-  };
-
-  const updateDiscount = (productId: string, discount: number) => {
-    setCart(cart.map(item =>
-      item.id === productId ? { ...item, discount: Math.max(0, discount) } : item
-    ));
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart(cart.filter(item => item.id !== productId));
   };
 
   const clearCart = () => {
@@ -512,7 +482,7 @@ export function POSPageRedesigned() {
       {/* Mobile Floating Cart Button */}
       {cart.length > 0 && (
         <button
-          onClick={() => setShowMobileCart(true)}
+          onClick={() => setShowPaymentModal(true)}
           className="lg:hidden fixed bottom-6 right-6 bg-primary-600 text-white p-4 rounded-full shadow-2xl hover:bg-primary-700 transition-all z-50 flex items-center gap-3"
         >
           <ShoppingCart className="w-6 h-6" />
