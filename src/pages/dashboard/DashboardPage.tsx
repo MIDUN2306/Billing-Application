@@ -6,7 +6,6 @@ import {
   Wallet, 
   Receipt, 
   Package, 
-  Coffee, 
   DollarSign, 
   Users,
   ArrowRight
@@ -280,43 +279,7 @@ export function DashboardPage() {
           </div>
         </button>
 
-        {/* 2. Tea Stock Card */}
-        <button
-          onClick={() => navigate('/tea-production-history')}
-          className="group relative bg-white rounded-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-3 text-left p-6 overflow-hidden border-4 border-primary-200 hover:border-primary-700 active:scale-95"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-primary-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-md">
-                <Coffee className="w-7 h-7 text-primary-700" />
-              </div>
-              <ArrowRight className="w-5 h-5 text-secondary-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" />
-            </div>
-            <h3 className="text-xs font-semibold text-secondary-600 uppercase tracking-wider mb-2">Tea Stock</h3>
-            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">{teaData.total_stock} units</p>
-            <p className="text-sm text-secondary-500">{teaData.products_count} tea products</p>
-          </div>
-        </button>
-
-        {/* 3. Coffee Stock Card */}
-        <button
-          onClick={() => navigate('/products')}
-          className="group relative bg-white rounded-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-3 text-left p-6 overflow-hidden border-4 border-primary-200 hover:border-primary-700 active:scale-95"
-        >
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          <div className="relative z-10">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-14 h-14 bg-primary-100 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-md">
-                <Coffee className="w-7 h-7 text-primary-700" />
-              </div>
-              <ArrowRight className="w-5 h-5 text-secondary-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" />
-            </div>
-            <h3 className="text-xs font-semibold text-secondary-600 uppercase tracking-wider mb-2">Coffee Stock</h3>
-            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">{coffeeData.total_stock} units</p>
-            <p className="text-sm text-secondary-500">{coffeeData.products_count} coffee products</p>
-          </div>
-        </button>
+        
 
         {/* 4. Inventory Card */}
         <button
