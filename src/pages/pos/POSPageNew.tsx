@@ -3,11 +3,12 @@ import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
 import { 
-  Search, Plus, Minus, User, RotateCw, X, ShoppingCart, 
-  CreditCard, ChevronRight, Tag, Package
+  Search, Plus, User, RotateCw, X, Tag, Package
 } from 'lucide-react';
 import { CustomerSelector } from './CustomerSelector';
 import { PaymentModalNew } from './PaymentModalNew';
+import { FloatingCartButton } from './FloatingCartButton';
+import { CartPanelNew } from './CartPanelNew';
 import { useLocation } from 'react-router-dom';
 
 interface Product {
@@ -21,9 +22,9 @@ interface Product {
   stock_status: string;
   is_ready_to_use: boolean;
   is_tea_product?: boolean;
-  tea_portion_ml?: number;
-  available_ml?: number;
-  available_liters?: number;
+  tea_portion_ml?: number | null;
+  available_ml?: number | null;
+  servings_available?: number | null;
 }
 
 interface CartItem extends Product {
@@ -49,20 +50,55 @@ export function POSPageNew() {
       if (isRefresh) {
         setRefreshing(true);
       }
-      const { data, error } = await supabase
+      
+      // Get products
+      const { data: productsData, error: productsError } = await supabase
         .from('v_pos_products_with_stock')
         .select('id, name, sku, category, mrp, unit, quantity, stock_status, is_ready_to_use')
         .eq('store_id', currentStore!.id)
         .order('category')
         .order('name');
 
-      if (error) throw error;
+      if (productsError) throw productsError;
       
-      // Ensure category is never null/undefined
-      const productsWithCategory = (data || []).map(p => ({
-        ...p,
-        category: p.category || 'Uncategorized'
-      }));
+      // Get tea stock
+      const { data: teaStockData } = await supabase
+        .from('tea_stock')
+        .select('total_ml')
+        .eq('store_id', currentStore!.id)
+        .single();
+      
+      const availableTeaMl = teaStockData?.total_ml || 0;
+      
+      // Get tea portion sizes from product_names
+      const { data: teaProductNames } = await supabase
+        .from('product_names')
+        .select('id, name, tea_portion_ml')
+        .not('tea_portion_ml', 'is', null);
+      
+      // Create a map of tea products by name
+      const teaPortionMap = new Map(
+        (teaProductNames || []).map(tp => [tp.name.toLowerCase(), tp.tea_portion_ml])
+      );
+      
+      // Enhance products with tea stock info
+      const productsWithCategory = (productsData || []).map(p => {
+        const productNameLower = p.name.toLowerCase();
+        const teaPortionMl = teaPortionMap.get(productNameLower);
+        const isTeaProduct = teaPortionMl != null;
+        const servingsAvailable = isTeaProduct && teaPortionMl 
+          ? Math.floor(availableTeaMl / teaPortionMl) 
+          : null;
+        
+        return {
+          ...p,
+          category: p.category || 'Uncategorized',
+          is_tea_product: isTeaProduct,
+          tea_portion_ml: teaPortionMl,
+          available_ml: isTeaProduct ? availableTeaMl : null,
+          servings_available: servingsAvailable
+        };
+      });
       
       setProducts(productsWithCategory);
       
@@ -146,7 +182,6 @@ export function POSPageNew() {
   };
 
   const totals = calculateTotals();
-  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col bg-gradient-to-br from-gray-50 to-gray-100">
@@ -186,18 +221,7 @@ export function POSPageNew() {
               </span>
             </button>
 
-            {cart.length > 0 && (
-              <button
-                onClick={() => setShowCartSidebar(true)}
-                className="lg:hidden btn-primary px-3 sm:px-4 py-2 flex items-center gap-2 relative"
-              >
-                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="font-bold text-sm sm:text-base">{cartItemCount}</span>
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                  {cart.length}
-                </span>
-              </button>
-            )}
+
           </div>
 
           {/* Category Filter */}
@@ -274,14 +298,21 @@ export function POSPageNew() {
             <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4 pb-20 lg:pb-4">
               {filteredProducts.map(product => {
                 const inCart = cart.find(item => item.id === product.id);
-                const isOutOfStock = product.is_ready_to_use && product.quantity <= 0;
+                const isTeaProduct = product.is_tea_product === true;
+                const teaOutOfStock = isTeaProduct && (product.servings_available == null || product.servings_available < 1);
+                const regularOutOfStock = product.is_ready_to_use && product.quantity <= 0;
+                const isOutOfStock = teaOutOfStock || regularOutOfStock;
                 
                 return (
                   <button
                     key={product.id}
                     onClick={() => {
                       if (isOutOfStock) {
-                        toast.error('Product is out of stock');
+                        if (teaOutOfStock) {
+                          toast.error(`${product.name} is out of stock - insufficient tea available`);
+                        } else {
+                          toast.error('Product is out of stock');
+                        }
                       } else {
                         addToCart(product);
                       }
@@ -332,7 +363,15 @@ export function POSPageNew() {
                         }`}>
                           ₹{(product.mrp || 0).toFixed(2)}
                         </span>
-                        {product.is_ready_to_use && (
+                        {isTeaProduct ? (
+                          <span className={`text-xs font-medium mt-0.5 ${
+                            (product.servings_available || 0) > 10 ? 'text-green-600' :
+                            (product.servings_available || 0) > 0 ? 'text-yellow-600' :
+                            'text-red-600'
+                          }`}>
+                            {product.servings_available || 0} servings
+                          </span>
+                        ) : product.is_ready_to_use ? (
                           <span className={`text-xs font-medium mt-0.5 ${
                             product.quantity > 10 ? 'text-green-600' :
                             product.quantity > 0 ? 'text-yellow-600' :
@@ -340,7 +379,7 @@ export function POSPageNew() {
                           }`}>
                             {product.quantity} {product.unit}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       {!isOutOfStock && (
                         <div className="bg-primary-500 text-white p-1.5 sm:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
@@ -356,8 +395,8 @@ export function POSPageNew() {
         </div>
 
         {/* Desktop Cart Panel */}
-        <div className="hidden lg:flex w-80 xl:w-96 flex-col bg-white border-l shadow-xl">
-          <CartPanel
+        <div className="hidden lg:flex w-80 xl:w-[420px] flex-col bg-white border-l shadow-xl">
+          <CartPanelNew
             cart={cart}
             totals={totals}
             selectedCustomer={selectedCustomer}
@@ -371,16 +410,24 @@ export function POSPageNew() {
         </div>
       </div>
 
+      {/* Floating Cart Button (Mobile/Tablet) */}
+      <FloatingCartButton
+        itemCount={cart.length}
+        totalAmount={totals.total}
+        onClick={() => setShowCartSidebar(true)}
+        hasItems={cart.length > 0}
+      />
+
       {/* Mobile/Tablet Cart Sidebar */}
       {showCartSidebar && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowCartSidebar(false)}
           />
           
-          <div className="absolute right-0 top-0 bottom-0 w-full sm:w-96 bg-white shadow-2xl flex flex-col animate-slide-in-right">
-            <CartPanel
+          <div className="absolute right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl flex flex-col animate-slide-in-right">
+            <CartPanelNew
               cart={cart}
               totals={totals}
               selectedCustomer={selectedCustomer}
@@ -430,189 +477,4 @@ export function POSPageNew() {
   );
 }
 
-// Reusable Cart Panel Component
-interface CartPanelProps {
-  cart: CartItem[];
-  totals: { subtotal: number; discount: number; tax: number; total: number };
-  selectedCustomer: any;
-  onUpdateQuantity: (id: string, qty: number) => void;
-  onUpdateDiscount: (id: string, disc: number) => void;
-  onRemoveItem: (id: string) => void;
-  onClearCart: () => void;
-  onSelectCustomer: () => void;
-  onCheckout: () => void;
-  onClose?: () => void;
-}
 
-function CartPanel({
-  cart,
-  totals,
-  selectedCustomer,
-  onUpdateQuantity,
-  onUpdateDiscount,
-  onRemoveItem,
-  onClearCart,
-  onSelectCustomer,
-  onCheckout,
-  onClose
-}: CartPanelProps) {
-  return (
-    <>
-      {/* Header */}
-      <div className="p-4 border-b bg-gradient-to-r from-primary-600 to-primary-700 text-white">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="w-5 h-5" />
-            <h2 className="text-lg font-bold">Cart ({cart.length})</h2>
-          </div>
-          <div className="flex items-center gap-2">
-            {cart.length > 0 && (
-              <button
-                onClick={onClearCart}
-                className="text-sm hover:bg-primary-800 px-3 py-1 rounded transition-colors"
-              >
-                Clear
-              </button>
-            )}
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="hover:bg-primary-800 p-1 rounded transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-        </div>
-        
-        <button
-          onClick={onSelectCustomer}
-          className="w-full p-2.5 border-2 border-primary-400 rounded-lg hover:bg-primary-800 transition-colors flex items-center justify-between bg-primary-500"
-        >
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              {selectedCustomer ? selectedCustomer.name : 'Walk-in Customer'}
-            </span>
-          </div>
-          <ChevronRight className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Cart Items */}
-      <div className="flex-1 overflow-y-auto">
-        {cart.length === 0 ? (
-          <div className="text-center text-gray-400 py-12 px-4">
-            <ShoppingCart className="w-16 h-16 mx-auto mb-3 opacity-30" />
-            <p className="text-lg font-medium">Cart is empty</p>
-            <p className="text-sm mt-1">Add products to start</p>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {cart.map(item => (
-              <div key={item.id} className="p-3 sm:p-4 hover:bg-gray-50">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1 pr-2">
-                    <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{item.name}</h4>
-                    <p className="text-xs text-gray-500">₹{item.mrp} × {item.quantity}</p>
-                  </div>
-                  <button
-                    onClick={() => onRemoveItem(item.id)}
-                    className="text-red-500 hover:bg-red-50 p-1 rounded flex-shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1 border rounded-lg">
-                    <button
-                      onClick={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                      className="p-1.5 hover:bg-gray-100 rounded-l-lg"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value) || 0)}
-                      className="w-12 sm:w-14 text-center border-x py-1 font-semibold text-sm"
-                      min="1"
-                    />
-                    <button
-                      onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                      className="p-1.5 hover:bg-gray-100 rounded-r-lg"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <input
-                    type="number"
-                    value={item.discount}
-                    onChange={(e) => onUpdateDiscount(item.id, parseFloat(e.target.value) || 0)}
-                    placeholder="Discount"
-                    className="flex-1 text-xs sm:text-sm border rounded-lg px-2 py-1.5"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div className="text-right font-bold text-primary-600 mt-2 text-sm sm:text-base">
-                  ₹{((item.mrp * item.quantity) - item.discount).toFixed(2)}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      {cart.length > 0 && (
-        <div className="border-t bg-gradient-to-b from-gray-50 to-white">
-          {/* Summary Section */}
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-              <span className="font-medium text-gray-900">₹{totals.subtotal.toFixed(2)}</span>
-            </div>
-            {totals.discount > 0 && (
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Discount</span>
-                <span className="font-medium text-red-600">-₹{totals.discount.toFixed(2)}</span>
-              </div>
-            )}
-            {totals.tax > 0 && (
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Tax</span>
-                <span className="font-medium text-gray-900">₹{totals.tax.toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Total Section */}
-          <div className="px-4 py-3 bg-primary-50 border-t border-primary-100">
-            <div className="flex justify-between items-center">
-              <span className="text-base font-semibold text-gray-700">Total Amount</span>
-              <span className="text-2xl font-bold text-primary-600">₹{totals.total.toFixed(2)}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1 text-right">
-              {cart.length} item{cart.length !== 1 ? 's' : ''} • {cart.reduce((sum, item) => sum + item.quantity, 0)} unit{cart.reduce((sum, item) => sum + item.quantity, 0) !== 1 ? 's' : ''}
-            </div>
-          </div>
-
-          {/* Checkout Button */}
-          <div className="p-4 pt-3">
-            <button
-              onClick={onCheckout}
-              className="w-full bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transition-all transform hover:scale-[1.02] active:scale-[0.98]"
-            >
-              <CreditCard className="w-6 h-6" />
-              <span>Complete Payment</span>
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}

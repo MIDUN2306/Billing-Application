@@ -2,7 +2,6 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   ShoppingCart, 
-  Package, 
   Milk,
   X,
   Receipt,
@@ -17,7 +16,6 @@ const navigation = [
   { name: 'POS', href: '/pos', icon: ShoppingCart, roles: ['staff', 'manager', 'admin'] },
   { name: 'Sales History', href: '/sales/history', icon: Receipt, roles: ['staff', 'manager', 'admin'] },
   { name: 'Preparation', href: '/preparation', icon: Coffee, roles: ['staff', 'manager', 'admin'] },
-  { name: 'Products', href: '/products', icon: Package, roles: ['staff', 'manager', 'admin'] },
   { name: 'Stock', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
   { name: 'Petty Cash', href: '/petty-cash', icon: Wallet, roles: ['staff', 'manager', 'admin'] },
   { name: 'Admin Panel', href: '/admin', icon: Shield, roles: ['admin'] },
