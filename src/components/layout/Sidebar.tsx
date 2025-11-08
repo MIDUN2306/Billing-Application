@@ -7,7 +7,8 @@ import {
   X,
   Receipt,
   Wallet,
-  Shield
+  Shield,
+  Coffee
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -15,8 +16,9 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['staff', 'manager', 'admin'] },
   { name: 'POS', href: '/pos', icon: ShoppingCart, roles: ['staff', 'manager', 'admin'] },
   { name: 'Sales History', href: '/sales/history', icon: Receipt, roles: ['staff', 'manager', 'admin'] },
+  { name: 'Preparation', href: '/preparation', icon: Coffee, roles: ['staff', 'manager', 'admin'] },
   { name: 'Products', href: '/products', icon: Package, roles: ['staff', 'manager', 'admin'] },
-  { name: 'Raw Materials', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
+  { name: 'Stock', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
   { name: 'Petty Cash', href: '/petty-cash', icon: Wallet, roles: ['staff', 'manager', 'admin'] },
   { name: 'Admin Panel', href: '/admin', icon: Shield, roles: ['admin'] },
 ];
@@ -53,7 +55,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Logo & Close Button */}
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
           <h1 className="text-xl font-display font-bold text-primary-800">
-            Tea Boys POS
+            DISA Info Tech
           </h1>
           <button
             onClick={onClose}

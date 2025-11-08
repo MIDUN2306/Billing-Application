@@ -128,7 +128,7 @@ The Manager User should now be visible with:
 - Name: Manager User
 - Email: manager123@gmail.com
 - Role: Manager
-- Store: Tea Boys Main Store
+- Store: Sky Walk
 - Status: Active
 
 ## Testing
@@ -244,8 +244,8 @@ Expected Result:
 ┌──────────────┬─────────┬───────────┬─────────────────────┬──────────────────────┐
 │ full_name    │ role    │ is_active │ store_name          │ email                │
 ├──────────────┼─────────┼───────────┼─────────────────────┼──────────────────────┤
-│ Manager User │ manager │ true      │ Tea Boys Main Store │ manager123@gmail.com │
-│ Admin User   │ admin   │ true      │ Tea Boys Main Store │ admin@gmail.com      │
+│ Manager User │ manager │ true      │ Sky Walk │ manager123@gmail.com │
+│ Admin User   │ admin   │ true      │ Sky Walk │ admin@gmail.com      │
 └──────────────┴─────────┴───────────┴─────────────────────┴──────────────────────┘
 ```
 

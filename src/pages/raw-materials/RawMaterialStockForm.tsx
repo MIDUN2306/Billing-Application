@@ -3,11 +3,14 @@ import { X, Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { AddRawMaterialModal } from './AddRawMaterialModal';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import toast from 'react-hot-toast';
 
 interface RawMaterial {
   id: string;
   name: string;
+  product_type: 'making' | 'ready_to_use';
+  sku: string | null;
 }
 
 interface RawMaterialStockFormProps {
@@ -41,9 +44,10 @@ export function RawMaterialStockForm({ stock, onClose }: RawMaterialStockFormPro
     try {
       const { data, error } = await supabase
         .from('raw_materials')
-        .select('id, name')
+        .select('id, name, product_type, sku')
         .eq('store_id', currentStore.id)
         .eq('is_active', true)
+        .order('product_type', { ascending: false }) // ready_to_use first
         .order('name');
 
       if (error) throw error;
@@ -53,8 +57,9 @@ export function RawMaterialStockForm({ stock, onClose }: RawMaterialStockFormPro
     }
   };
 
-  const handleAddMaterialSuccess = (material: RawMaterial) => {
-    setRawMaterials([...rawMaterials, material]);
+  const handleAddMaterialSuccess = (material: any) => {
+    // Reload materials to get the complete data with product_type and sku
+    loadRawMaterials();
     setFormData({ ...formData, raw_material_id: material.id });
     setShowAddMaterialModal(false);
   };
@@ -171,19 +176,33 @@ export function RawMaterialStockForm({ stock, onClose }: RawMaterialStockFormPro
                 Raw Material *
               </label>
               <div className="flex flex-col sm:flex-row gap-3">
-                <select
-                  required
-                  value={formData.raw_material_id}
-                  onChange={(e) => setFormData({ ...formData, raw_material_id: e.target.value })}
-                  className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-base font-medium"
-                >
-                  <option value="">Select Raw Material</option>
-                  {rawMaterials.map((material) => (
-                    <option key={material.id} value={material.id}>
-                      {material.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={[
+                      // Ready to Use Products
+                      ...rawMaterials
+                        .filter(m => m.product_type === 'ready_to_use')
+                        .map(material => ({
+                          value: material.id,
+                          label: material.name,
+                          subtitle: material.sku ? `SKU: ${material.sku}` : undefined,
+                          badge: 'Ready to Use'
+                        })),
+                      // Making Products
+                      ...rawMaterials
+                        .filter(m => m.product_type === 'making')
+                        .map(material => ({
+                          value: material.id,
+                          label: material.name,
+                          badge: 'Making'
+                        }))
+                    ]}
+                    value={formData.raw_material_id}
+                    onChange={(value) => setFormData({ ...formData, raw_material_id: value })}
+                    placeholder="Select Raw Material"
+                    searchPlaceholder="Search by name or SKU..."
+                  />
+                </div>
                 <button
                   type="button"
                   onClick={() => setShowAddMaterialModal(true)}
@@ -193,6 +212,9 @@ export function RawMaterialStockForm({ stock, onClose }: RawMaterialStockFormPro
                   <span className="hidden sm:inline">Add New</span>
                 </button>
               </div>
+              <p className="text-xs text-secondary-500 mt-2">
+                {rawMaterials.filter(m => m.product_type === 'ready_to_use').length} ready-to-use products, {rawMaterials.filter(m => m.product_type === 'making').length} making products available
+              </p>
             </div>
 
             {/* Unit and Quantity */}

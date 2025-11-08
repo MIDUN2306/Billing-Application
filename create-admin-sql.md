@@ -75,14 +75,14 @@ WHERE au.email = 'admin@teaboys.com';
 You should see:
 - Role: `admin`
 - Is Active: `true`
-- Store Name: `Tea Boys Main Store`
+- Store Name: `Sky Walk`
 
 ## Default Test Credentials
 
 **Email**: `admin@teaboys.com`  
 **Password**: `admin123`  
 **Role**: Admin  
-**Store**: Tea Boys Main Store
+**Store**: Sky Walk
 
 ## Troubleshooting
 
@@ -99,7 +99,7 @@ You should see:
 - If no store, create one:
   ```sql
   INSERT INTO stores (name, address, phone, is_active)
-  VALUES ('Tea Boys Main Store', '123 Main St', '+91-1234567890', true);
+  VALUES ('Sky Walk', '123 Main St', '+91-1234567890', true);
   ```
 
 ### Can't login after creating account

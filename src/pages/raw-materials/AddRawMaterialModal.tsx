@@ -18,6 +18,8 @@ interface AddRawMaterialModalProps {
 export function AddRawMaterialModal({ onClose, onSuccess }: AddRawMaterialModalProps) {
   const { currentStore } = useStoreStore();
   const [materialName, setMaterialName] = useState('');
+  const [productType, setProductType] = useState<'making' | 'ready_to_use'>('making');
+  const [sku, setSku] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,11 +49,20 @@ export function AddRawMaterialModal({ onClose, onSuccess }: AddRawMaterialModalP
         return;
       }
 
+      // Validate SKU for ready-to-use products
+      if (productType === 'ready_to_use' && !sku.trim()) {
+        toast.error('SKU is required for ready-to-use products');
+        setLoading(false);
+        return;
+      }
+
       // Create new raw material
       const { data, error } = await supabase
         .from('raw_materials')
         .insert([{
           name: trimmedName,
+          product_type: productType,
+          sku: productType === 'ready_to_use' ? sku.trim() : null,
           store_id: currentStore.id,
         }])
         .select()
@@ -92,6 +103,43 @@ export function AddRawMaterialModal({ onClose, onSuccess }: AddRawMaterialModalP
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Product Type Selection */}
+          <div>
+            <label className="block text-sm font-bold text-secondary-700 uppercase tracking-wide mb-3">
+              Product Type *
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setProductType('making')}
+                className={`px-4 py-3 rounded-xl border-2 font-semibold transition-all ${
+                  productType === 'making'
+                    ? 'border-primary-600 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 bg-white text-secondary-600 hover:border-gray-400'
+                }`}
+              >
+                Making Product
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductType('ready_to_use')}
+                className={`px-4 py-3 rounded-xl border-2 font-semibold transition-all ${
+                  productType === 'ready_to_use'
+                    ? 'border-primary-600 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 bg-white text-secondary-600 hover:border-gray-400'
+                }`}
+              >
+                Ready to Use
+              </button>
+            </div>
+            <p className="text-xs text-secondary-500 mt-2">
+              {productType === 'making' 
+                ? 'For ingredients like Tea, Coffee, Milk, Sugar' 
+                : 'For finished products like Biscuits, Samosas, Cakes'}
+            </p>
+          </div>
+
+          {/* Material Name */}
           <div>
             <label className="block text-sm font-bold text-secondary-700 uppercase tracking-wide mb-3">
               Material Name *
@@ -101,14 +149,33 @@ export function AddRawMaterialModal({ onClose, onSuccess }: AddRawMaterialModalP
               required
               value={materialName}
               onChange={(e) => setMaterialName(e.target.value)}
-              placeholder="e.g., Milk, Tea Powder, Sugar"
+              placeholder={productType === 'making' ? 'e.g., Milk, Tea Powder, Sugar' : 'e.g., Biscuits, Samosa, Cake'}
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-base font-medium"
-              autoFocus
             />
             <p className="text-xs text-secondary-500 mt-2">
               Enter a unique name for this raw material
             </p>
           </div>
+
+          {/* SKU Field - Only for Ready to Use */}
+          {productType === 'ready_to_use' && (
+            <div>
+              <label className="block text-sm font-bold text-secondary-700 uppercase tracking-wide mb-3">
+                SKU / Item Code *
+              </label>
+              <input
+                type="text"
+                required
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                placeholder="e.g., 9, 15, 37"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all text-base font-medium"
+              />
+              <p className="text-xs text-secondary-500 mt-2">
+                Enter the SKU or item code for this product
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4">

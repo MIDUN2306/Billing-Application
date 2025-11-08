@@ -80,7 +80,7 @@ VALUES (
   'YOUR_USER_ID_HERE',  -- Replace with actual user ID from above
   'Admin User',
   'admin',
-  'fcb79a3d-ea99-4d4d-84ad-03dcc01718b2',  -- Tea Boys Main Store
+  'fcb79a3d-ea99-4d4d-84ad-03dcc01718b2',  -- Sky Walk
   true
 )
 ON CONFLICT (id) DO UPDATE SET
@@ -178,7 +178,7 @@ You should see:
 - Full Name: `Admin User`
 - Role: `admin`
 - Is Active: `true`
-- Store Name: `Tea Boys Main Store`
+- Store Name: `Sky Walk`
 
 ---
 
@@ -210,6 +210,6 @@ If you're still having trouble:
 - Email: `admin@teaboys.com`
 - Password: `admin123`
 - Role: Admin
-- Store: Tea Boys Main Store
+- Store: Sky Walk
 
 **Good luck!** 🚀

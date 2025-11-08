@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Search, Trash2, Package, RefreshCw, Edit, RotateCw } from 'lucide-react';
+import { Plus, Search, Trash2, Package, RefreshCw, Edit, RotateCw, Coffee, Layers } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { ProductFormWithInlineDrafts } from './ProductFormWithInlineDrafts';
 import { EditTemplateModal } from './EditTemplateModal';
 import { RefillProductModal } from './RefillProductModal';
+import { TeaPreparationModal } from './TeaPreparationModal';
 import toast from 'react-hot-toast';
 
 interface Product {
@@ -22,6 +23,8 @@ interface Product {
   is_template?: boolean;
   has_ingredients?: boolean;
   producible_quantity?: number;
+  linked_raw_material_id?: string | null;
+  is_linked_to_raw_material?: boolean;
 }
 
 export function ProductsPage() {
@@ -34,6 +37,7 @@ export function ProductsPage() {
   const [editingTemplate, setEditingTemplate] = useState<Product | null>(null);
   const [refillProduct, setRefillProduct] = useState<Product | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showTeaPreparation, setShowTeaPreparation] = useState(false);
   const loadingRef = useRef(false);
   const isMountedRef = useRef(true);
 
@@ -74,7 +78,7 @@ export function ProductsPage() {
 
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('id, name, sku, category, unit, mrp, quantity, product_template_id, category_id')
+        .select('id, name, sku, category, unit, mrp, quantity, product_template_id, category_id, linked_raw_material_id')
         .eq('store_id', storeId)
         .eq('is_active', true)
         .order('name');
@@ -149,6 +153,8 @@ export function ProductsPage() {
         mrp: item.mrp,
         quantity: item.quantity,
         product_template_id: item.product_template_id,
+        linked_raw_material_id: item.linked_raw_material_id,
+        is_linked_to_raw_material: !!item.linked_raw_material_id,
         stock_status: item.quantity === 0 ? 'out_of_stock' : item.quantity < 10 ? 'low_stock' : 'in_stock',
         is_template: false,
       }));
@@ -521,6 +527,32 @@ export function ProductsPage() {
         </div>
       </div>
 
+      {/* Tea Preparation Card */}
+      <div 
+        onClick={() => setShowTeaPreparation(true)}
+        className="card bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 hover:border-amber-400 hover:shadow-xl transition-all duration-200 cursor-pointer group"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-4 bg-amber-100 rounded-xl group-hover:bg-amber-200 transition-colors">
+              <Coffee className="w-8 h-8 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-secondary-900 mb-1">Tea Preparation Batches</h3>
+              <p className="text-sm text-secondary-600">
+                Manage recipe batches for all your tea products
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Layers className="w-6 h-6 text-amber-600" />
+            <span className="text-sm font-medium text-amber-700 bg-amber-100 px-3 py-1 rounded-full">
+              Click to manage
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Search */}
       <div className="card">
         <div className="relative">
@@ -563,14 +595,19 @@ export function ProductsPage() {
                 <p className="text-sm font-medium text-gray-600 mb-2">SKU: {product.sku}</p>
               )}
 
-              {/* Category */}
-              {product.category && (
-                <p className="text-xs text-gray-500 mb-3">
-                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-medium">
+              {/* Category and Link Status */}
+              <div className="flex flex-wrap gap-2 mb-3">
+                {product.category && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 font-medium text-xs">
                     {product.category}
                   </span>
-                </p>
-              )}
+                )}
+                {product.is_linked_to_raw_material && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-md bg-purple-50 text-purple-700 font-medium text-xs">
+                    🔗 Linked to Stock
+                  </span>
+                )}
+              </div>
 
               {/* Price and Stock */}
               <div className="flex items-center justify-between mb-3">
@@ -671,6 +708,13 @@ export function ProductsPage() {
             setRefillProduct(null);
             loadProducts();
           }}
+        />
+      )}
+
+      {/* Tea Preparation Modal */}
+      {showTeaPreparation && (
+        <TeaPreparationModal
+          onClose={() => setShowTeaPreparation(false)}
         />
       )}
     </div>

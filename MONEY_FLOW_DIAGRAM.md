@@ -1,4 +1,4 @@
-# Money Flow Diagram - Tea Boys POS
+# Money Flow Diagram - DISA Info Tech
 
 ## Complete Financial Flow
 

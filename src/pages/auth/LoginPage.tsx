@@ -39,7 +39,7 @@ export function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-display font-bold text-primary-800 mb-2">
-            Tea Boys POS
+            DISA Info Tech
           </h1>
           <p className="text-secondary-600">
             Sign in to your account

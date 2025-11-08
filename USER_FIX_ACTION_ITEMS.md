@@ -29,7 +29,7 @@ This clears the cache and loads the latest data.
    - Email: test@example.com
    - Password: test123
    - Role: Staff
-   - Store: Tea Boys Main Store
+   - Store: Sky Walk
 3. Click **"Create User"**
 4. ✅ User should appear immediately in the table
 
@@ -39,12 +39,12 @@ This clears the cache and loads the latest data.
 Users in System: 2
 ├── Admin User (admin@gmail.com)
 │   ├── Role: Admin
-│   ├── Store: Tea Boys Main Store
+│   ├── Store: Sky Walk
 │   └── Status: Active ✅
 │
 └── Manager User (manager123@gmail.com)
     ├── Role: Manager
-    ├── Store: Tea Boys Main Store
+    ├── Store: Sky Walk
     └── Status: Active ✅
 ```
 

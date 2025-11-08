@@ -89,8 +89,30 @@ export function PaymentModal({ cart, customer, totals, onSuccess, onClose }: Pay
 
       if (itemsError) throw itemsError;
 
+      // Deduct stock from products (regular products)
       // Note: Stock deduction is handled automatically by the database trigger
       // 'update_inventory_on_sale' which updates inventory and creates stock movements
+
+      // Deduct stock from raw materials (for ready-to-use products sold in POS)
+      try {
+        const { error: stockError } = await supabase
+          .rpc('deduct_raw_material_stock_for_pos_sale', {
+            p_sale_id: sale.id,
+            p_store_id: currentStore!.id
+          });
+
+        if (stockError) {
+          console.error('Raw material stock deduction error:', stockError);
+          // Don't fail the sale, just log the error
+          toast.error('Warning: Stock deduction may have failed. Please check inventory.');
+        }
+      } catch (stockErr) {
+        console.error('Stock deduction exception:', stockErr);
+        // Continue with sale completion
+      }
+
+      // Tea consumption is now handled automatically by database trigger
+      // (trigger_deduct_tea_on_sale) - no manual logging needed
 
       // Create payment record
       // Generate payment number

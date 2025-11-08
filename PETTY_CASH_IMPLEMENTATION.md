@@ -1,7 +1,7 @@
 # Petty Cash Feature Implementation
 
 ## Overview
-A new "Petty Cash" module has been successfully implemented to track petty cash disbursements in the Tea Boys POS system.
+A new "Petty Cash" module has been successfully implemented to track petty cash disbursements in the DISA Info Tech system.
 
 ## What Was Implemented
 

@@ -33,8 +33,8 @@ After refreshing your browser, you should see:
 ┌─────────────────────────────────────────────────────┐
 │ USER          │ ROLE      │ STORE                  │
 ├───────────────┼───────────┼────────────────────────┤
-│ Manager User  │ [Manager] │ Tea Boys Main Store    │
-│ Admin User    │ [Admin]   │ Tea Boys Main Store    │
+│ Manager User  │ [Manager] │ Sky Walk    │
+│ Admin User    │ [Admin]   │ Sky Walk    │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -42,7 +42,7 @@ After refreshing your browser, you should see:
 - Name: Manager User
 - Email: manager123@gmail.com
 - Role: Manager
-- Store: Tea Boys Main Store
+- Store: Sky Walk
 - Status: Active
 
 ## 🔍 Verification Steps

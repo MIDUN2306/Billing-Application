@@ -38,7 +38,7 @@ https://yourapp.com/bill-viewer.html#BILL:eyJpbnYiOiJJTlYt...
 ```json
 {
   "inv": "INV-20251103-0008",
-  "st": "Tea Boys Main Store",
+  "st": "Sky Walk",
   "dt": "3/11/2025",
   "tot": 40.00,
   "itm": [
@@ -111,7 +111,7 @@ https://yourapp.com/bill-viewer.html#BILL:eyJpbnYiOiJJTlYt...
 ├─────────────────────────────┤
 │ Invoice: INV-20251103-0008  │
 │ Date: 3/11/2025             │
-│ Store: Tea Boys Main Store  │
+│ Store: Sky Walk  │
 │ Items: 2                    │
 │ Total: Rs40.00              │
 ├─────────────────────────────┤
@@ -128,7 +128,7 @@ https://yourapp.com/bill-viewer.html#BILL:eyJpbnYiOiJJTlYt...
 ├─────────────────────────────┤
 │ Invoice: INV-20251103-0008  │
 │ Date: 3/11/2025             │
-│ Store: Tea Boys Main Store  │
+│ Store: Sky Walk  │
 │ Items: 2                    │
 │ Total: Rs40.00              │
 ├─────────────────────────────┤

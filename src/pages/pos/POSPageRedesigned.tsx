@@ -19,6 +19,11 @@ interface Product {
   quantity: number;
   category_name: string;
   category_id: string | null;
+  tea_portion_ml?: number | null;
+  available_ml?: number;
+  available_liters?: number;
+  available_servings?: number;
+  is_tea_product?: boolean;
 }
 
 interface CartItem extends Product {
@@ -94,15 +99,45 @@ export function POSPageRedesigned() {
         setRefreshing(true);
       }
       
-      const { data, error } = await supabase
+      // Load regular products
+      const { data: regularProducts, error: regularError } = await supabase
         .from('v_product_stock_status')
         .select('id, name, sku, mrp, unit, quantity, category_name, category_id')
         .eq('store_id', currentStore.id)
         .gt('quantity', 0)
         .order('name');
 
-      if (error) throw error;
-      setProducts(data || []);
+      if (regularError) throw regularError;
+
+      // Load tea products with stock
+      const { data: teaProducts, error: teaError } = await supabase
+        .from('v_tea_products_with_stock')
+        .select('id, name, sku, mrp, category, tea_portion_ml, available_ml, available_servings, available_liters')
+        .eq('store_id', currentStore.id);
+
+      if (teaError) throw teaError;
+
+      // Combine products, marking tea products
+      const allProducts = [
+        ...(regularProducts || []).map(p => ({ ...p, is_tea_product: false })),
+        ...(teaProducts || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku || '',
+          mrp: p.mrp || 0,
+          unit: 'serving',
+          quantity: p.available_servings || 0,
+          category_name: p.category || 'Beverages',
+          category_id: null,
+          tea_portion_ml: p.tea_portion_ml,
+          available_ml: p.available_ml,
+          available_liters: p.available_liters,
+          available_servings: p.available_servings,
+          is_tea_product: true,
+        })),
+      ].sort((a, b) => a.name.localeCompare(b.name));
+
+      setProducts(allProducts);
       
       if (isRefresh) {
         toast.success('Products refreshed');
@@ -159,6 +194,12 @@ export function POSPageRedesigned() {
 
   // Cart functions
   const addToCart = (product: Product) => {
+    // Check if product is out of stock
+    if (product.quantity === 0) {
+      toast.error(`${product.name} is out of stock`);
+      return;
+    }
+
     const existing = cart.find(item => item.id === product.id);
     
     if (existing) {
@@ -340,21 +381,36 @@ export function POSPageRedesigned() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-4">
                 {filteredProducts.map(product => {
                   const inCart = cart.find(item => item.id === product.id);
+                  const isOutOfStock = product.quantity === 0;
                   return (
                     <button
                       key={product.id}
                       onClick={() => addToCart(product)}
-                      className="group relative bg-white p-5 border-2 border-gray-200 rounded-2xl hover:border-primary-500 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-left"
+                      disabled={isOutOfStock}
+                      className={`group relative bg-white p-5 border-2 rounded-2xl transition-all duration-300 text-left ${
+                        isOutOfStock
+                          ? 'border-gray-300 opacity-60 cursor-not-allowed'
+                          : 'border-gray-200 hover:border-primary-500 hover:shadow-2xl hover:-translate-y-1'
+                      }`}
                     >
+                      {/* Out of Stock Badge */}
+                      {isOutOfStock && (
+                        <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                          Out of Stock
+                        </div>
+                      )}
+
                       {/* In Cart Badge */}
-                      {inCart && (
+                      {!isOutOfStock && inCart && (
                         <div className="absolute top-3 right-3 bg-primary-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
                           {inCart.quantity} in cart
                         </div>
                       )}
 
                       {/* Product Name */}
-                      <h3 className="font-bold text-lg mb-3 line-clamp-2 text-gray-900 group-hover:text-primary-600 transition-colors min-h-[3.5rem] pr-20">
+                      <h3 className={`font-bold text-lg mb-3 line-clamp-2 transition-colors min-h-[3.5rem] pr-20 ${
+                        isOutOfStock ? 'text-gray-500' : 'text-gray-900 group-hover:text-primary-600'
+                      }`}>
                         {product.name}
                       </h3>
                       
@@ -378,30 +434,67 @@ export function POSPageRedesigned() {
                       <div className="flex items-center justify-between pt-3 border-t-2 border-gray-100 mt-3">
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Price</p>
-                          <p className="text-2xl font-bold text-primary-600">
+                          <p className={`text-2xl font-bold ${isOutOfStock ? 'text-gray-400' : 'text-primary-600'}`}>
                             ₹{product.mrp.toFixed(2)}
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-xs text-gray-500 mb-1">Stock</p>
+                          <p className="text-xs text-gray-500 mb-1">
+                            {product.is_tea_product ? 'Servings' : 'Stock'}
+                          </p>
                           <p className={`text-sm font-bold px-3 py-1.5 rounded-lg ${
-                            product.quantity > 10 
+                            isOutOfStock
+                              ? 'bg-red-100 text-red-700'
+                              : product.quantity > 10 
                               ? 'bg-green-100 text-green-700' 
                               : product.quantity > 5 
                               ? 'bg-yellow-100 text-yellow-700'
                               : 'bg-red-100 text-red-700'
                           }`}>
-                            {product.quantity} {product.unit}
+                            {isOutOfStock ? 'Out of Stock' : `${product.quantity} ${product.unit}`}
                           </p>
                         </div>
                       </div>
 
-                      {/* Add Button Overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary-600/0 to-primary-600/0 group-hover:from-primary-600/5 group-hover:to-primary-600/10 rounded-2xl transition-all duration-300 pointer-events-none flex items-center justify-center">
-                        <div className="bg-primary-600 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 shadow-2xl">
-                          <Plus className="w-6 h-6" />
+                      {/* Tea Product Details */}
+                      {product.is_tea_product && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                          {/* Consumption per serving */}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600 font-medium">Per Serving:</span>
+                            <span className="font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded">
+                              {product.tea_portion_ml}ml
+                            </span>
+                          </div>
+                          {/* Available tea stock */}
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-600 font-medium">Tea Available:</span>
+                            <span className={`font-bold px-2 py-1 rounded ${
+                              isOutOfStock
+                                ? 'text-red-700 bg-red-50'
+                                : (product.available_ml || 0) > 5000
+                                ? 'text-green-700 bg-green-50'
+                                : 'text-yellow-700 bg-yellow-50'
+                            }`}>
+                              {product.available_ml ? `${product.available_ml.toFixed(0)}ml` : '0ml'}
+                              {product.available_liters && product.available_liters > 0 && (
+                                <span className="text-gray-500 ml-1">
+                                  ({product.available_liters.toFixed(1)}L)
+                                </span>
+                              )}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      )}
+
+                      {/* Add Button Overlay */}
+                      {!isOutOfStock && (
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary-600/0 to-primary-600/0 group-hover:from-primary-600/5 group-hover:to-primary-600/10 rounded-2xl transition-all duration-300 pointer-events-none flex items-center justify-center">
+                          <div className="bg-primary-600 text-white p-3 rounded-full opacity-0 group-hover:opacity-100 transform scale-75 group-hover:scale-100 transition-all duration-300 shadow-2xl">
+                            <Plus className="w-6 h-6" />
+                          </div>
+                        </div>
+                      )}
                     </button>
                   );
                 })}

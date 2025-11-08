@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { CreateStoreModal } from './CreateStoreModal';
 import { EditStoreModal } from './EditStoreModal';
+import { useStoreStore } from '../../stores/storeStore';
 
 interface Store {
   id: string;
@@ -23,6 +24,7 @@ export function StoresTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
+  const { refreshCurrentStore } = useStoreStore();
 
   useEffect(() => {
     loadStores();
@@ -189,6 +191,7 @@ export function StoresTab() {
           onSuccess={() => {
             setShowCreateModal(false);
             loadStores();
+            refreshCurrentStore(); // Refresh in case this affects the current store
           }}
         />
       )}
@@ -200,6 +203,7 @@ export function StoresTab() {
           onSuccess={() => {
             setEditingStore(null);
             loadStores();
+            refreshCurrentStore(); // Refresh the header store name
           }}
         />
       )}

@@ -166,7 +166,7 @@ See `create-admin-sql.md` for detailed instructions on handling email confirmati
 **Email**: `admin@teaboys.com`  
 **Password**: `admin123`  
 **Role**: Admin  
-**Store**: Tea Boys Main Store
+**Store**: Sky Walk
 
 ---
 

@@ -23,7 +23,7 @@
 Invoice: INV-20251103-0008
 Date: 3/11/2025
 Total: Rs40.00
-Store: Tea Boys Main Store
+Store: Sky Walk
 ```
 
 When customer scans with phone, they see this information instantly.
@@ -132,7 +132,7 @@ const uploadPDF = async () => {
 Invoice: INV-20251103-0008
 Date: 3/11/2025
 Total: Rs40.00
-Store: Tea Boys Main Store
+Store: Sky Walk
 ```
 
 ### Modal Features:

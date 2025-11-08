@@ -32,10 +32,11 @@ export function SearchableSelect({
 
   const selectedOption = options.find(opt => opt.value === value);
 
-  // Filter options based on search query
+  // Filter options based on search query (search in label, subtitle, and badge)
   const filteredOptions = options.filter(option =>
     option.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    option.subtitle?.toLowerCase().includes(searchQuery.toLowerCase())
+    option.subtitle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    option.badge?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Close dropdown when clicking outside

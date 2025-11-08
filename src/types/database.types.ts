@@ -118,6 +118,22 @@ export interface RawMaterialStock {
   updated_at: string;
 }
 
+export interface RawMaterialUsageLog {
+  id: string;
+  raw_material_id: string;
+  store_id: string;
+  quantity_used: number;
+  unit: string;
+  usage_type: 'sale' | 'production' | 'wastage' | 'adjustment';
+  reference_type: string | null;
+  reference_id: string | null;
+  unit_cost: number | null;
+  total_cost: number | null;
+  used_at: string;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface RawMaterial {
   id: string;
   name: string;

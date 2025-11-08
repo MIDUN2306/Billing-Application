@@ -11,6 +11,8 @@ interface RawMaterialStock {
   id: string;
   raw_material_id: string;
   raw_material_name: string;
+  product_type: 'making' | 'ready_to_use';
+  sku: string | null;
   unit: string;
   quantity: number;
   purchase_price: number;
@@ -424,10 +426,26 @@ export function RawMaterialsPage() {
                 {/* Card Content */}
                 <div className="p-6">
                   {/* Material Name */}
-                  <div className="mb-6 pr-24">
+                  <div className="mb-4 pr-24">
                     <h3 className="text-xl font-bold text-secondary-900 truncate leading-tight">
                       {stock.raw_material_name}
                     </h3>
+                    {stock.sku && (
+                      <p className="text-sm text-secondary-500 mt-1">
+                        SKU: <span className="font-semibold text-secondary-700">{stock.sku}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Product Type Badge */}
+                  <div className="mb-5">
+                    <span className={`inline-flex px-2.5 py-1 text-xs font-semibold rounded-full ${
+                      stock.product_type === 'ready_to_use'
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {stock.product_type === 'ready_to_use' ? 'Ready to Use' : 'Making Product'}
+                    </span>
                   </div>
 
                   {/* Quantity Section */}

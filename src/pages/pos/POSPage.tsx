@@ -15,6 +15,7 @@ interface Product {
   unit: string;
   quantity: number;
   category_name: string;
+  is_linked_to_raw_material?: boolean;
 }
 
 interface CartItem extends Product {
@@ -39,11 +40,11 @@ export function POSPage() {
       if (isRefresh) {
         setRefreshing(true);
       }
+      // Load ready-to-use raw materials directly as products
       const { data, error } = await supabase
-        .from('v_product_stock_status')
-        .select('id, name, sku, mrp, unit, quantity, category_name')
+        .from('v_pos_ready_to_use_products')
+        .select('id, name, sku, mrp, unit, quantity, category_name, stock_status')
         .eq('store_id', currentStore!.id)
-        .gt('quantity', 0)
         .order('name');
 
       if (error) throw error;
@@ -147,7 +148,7 @@ export function POSPage() {
 
   const calculateTotals = () => {
     const subtotal = cart.reduce((sum, item) => {
-      const itemTotal = item.mrp * item.quantity;
+      const itemTotal = (item.mrp || 0) * item.quantity;
       return sum + itemTotal;
     }, 0);
 
@@ -208,7 +209,7 @@ export function POSPage() {
                       <tr key={item.id} className="border-b">
                         <td className="p-2">
                           <div className="font-medium text-gray-900">{item.name}</div>
-                          <div className="text-xs text-gray-500">₹{item.mrp} × {item.quantity}</div>
+                          <div className="text-xs text-gray-500">₹{(item.mrp || 0).toFixed(2)} × {item.quantity}</div>
                         </td>
                         <td className="p-2">
                           <div className="flex items-center justify-center gap-1">
@@ -228,7 +229,7 @@ export function POSPage() {
                           </div>
                         </td>
                         <td className="p-2 text-right font-semibold">
-                          ₹{(item.mrp * item.quantity - item.discount).toFixed(2)}
+                          ₹{((item.mrp || 0) * item.quantity - item.discount).toFixed(2)}
                         </td>
                         <td className="p-2">
                           <button
@@ -280,9 +281,21 @@ export function POSPage() {
               {filteredProducts.map(product => (
                 <button
                   key={product.id}
-                  onClick={() => addToCart(product)}
-                  className="group relative bg-gradient-to-br from-white to-gray-50 p-6 border-2 border-gray-200 rounded-2xl hover:border-primary-500 hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 text-left"
+                  onClick={() => product.quantity > 0 ? addToCart(product) : toast.error('Product is out of stock')}
+                  disabled={product.quantity <= 0}
+                  className={`group relative bg-gradient-to-br from-white to-gray-50 p-6 border-2 rounded-2xl transition-all duration-300 text-left ${
+                    product.quantity <= 0
+                      ? 'border-gray-300 opacity-50 cursor-not-allowed'
+                      : 'border-gray-200 hover:border-primary-500 hover:shadow-2xl hover:scale-[1.02]'
+                  }`}
                 >
+                  {/* Out of Stock Badge */}
+                  {product.quantity <= 0 && (
+                    <div className="absolute top-3 right-3 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg z-10">
+                      OUT OF STOCK
+                    </div>
+                  )}
+
                   {/* Product Name */}
                   <h3 className="font-bold text-lg mb-3 line-clamp-2 text-gray-900 group-hover:text-primary-600 transition-colors min-h-[3.5rem]">
                     {product.name}
@@ -310,7 +323,7 @@ export function POSPage() {
                     <div className="flex flex-col">
                       <span className="text-xs font-medium text-gray-500 mb-1">Price</span>
                       <span className="text-2xl font-bold text-primary-600">
-                        ₹{product.mrp.toFixed(2)}
+                        ₹{(product.mrp || 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex flex-col items-end">
@@ -402,7 +415,7 @@ export function POSPage() {
                           <div className="text-xs text-gray-500 font-mono">SKU: {item.sku}</div>
                         )}
                         <div className="text-xs text-gray-600 mt-1">
-                          ₹{item.mrp.toFixed(2)} × {item.quantity}
+                          ₹{(item.mrp || 0).toFixed(2)} × {item.quantity}
                         </div>
                         {item.discount > 0 && (
                           <div className="text-xs text-red-600 mt-0.5">
@@ -445,7 +458,7 @@ export function POSPage() {
                         </div>
                       </td>
                       <td className="p-3 text-right font-bold text-gray-900">
-                        ₹{(item.mrp * item.quantity - item.discount).toFixed(2)}
+                        ₹{((item.mrp || 0) * item.quantity - item.discount).toFixed(2)}
                       </td>
                       <td className="p-3">
                         <button

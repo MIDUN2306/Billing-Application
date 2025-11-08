@@ -2,7 +2,7 @@
 
 ## What Was Built
 
-A complete, production-ready admin panel for managing stores, users, and roles in the Tea Boys POS multi-tenant system.
+A complete, production-ready admin panel for managing stores, users, and roles in the DISA Info Tech multi-tenant system.
 
 ## Files Created
 

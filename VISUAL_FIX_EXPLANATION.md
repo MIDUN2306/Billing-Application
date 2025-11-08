@@ -54,7 +54,7 @@
 │  ┌────────────────────────────────────────────────────┐    │
 │  │ USER          │ ROLE    │ STORE                    │    │
 │  ├───────────────┼─────────┼──────────────────────────┤    │
-│  │ Admin User    │ [Admin] │ Tea Boys Main Store      │    │
+│  │ Admin User    │ [Admin] │ Sky Walk      │    │
 │  │                                                      │    │
 │  │ ❌ Manager User NOT SHOWING!                        │    │
 │  └────────────────────────────────────────────────────┘    │
@@ -120,8 +120,8 @@
 │  ┌────────────────────────────────────────────────────┐    │
 │  │ USER          │ ROLE      │ STORE                  │    │
 │  ├───────────────┼───────────┼────────────────────────┤    │
-│  │ Manager User  │ [Manager] │ Tea Boys Main Store    │    │
-│  │ Admin User    │ [Admin]   │ Tea Boys Main Store    │    │
+│  │ Manager User  │ [Manager] │ Sky Walk    │    │
+│  │ Admin User    │ [Admin]   │ Sky Walk    │    │
 │  │                                                      │    │
 │  │ ✅ BOTH USERS NOW VISIBLE!                          │    │
 │  └────────────────────────────────────────────────────┘    │

@@ -31,7 +31,7 @@
 ### Thermal Receipt PDF (80mm width)
 ```
 ┌─────────────────────────────┐
-│     Tea Boys Main Store     │
+│     Sky Walk     │
 │   123 Main Street, City     │
 │   Ph: +91-9876543210        │
 │   GST: 29XXXXX1234X1ZX      │
@@ -166,7 +166,7 @@ const doc = new jsPDF({
   "invoice": "INV-20251103-0003",
   "date": "3/11/2025",
   "total": 20.00,
-  "store": "Tea Boys Main Store",
+  "store": "Sky Walk",
   "items": 1,
   "customer": "John Doe",
   "downloadUrl": "https://yourapp.com/download-bill/INV-..."

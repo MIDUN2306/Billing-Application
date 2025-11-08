@@ -43,7 +43,7 @@ profiles:
 ├────────────────────────────────────────────────┤
 │ User          │ Role    │ Store               │
 ├───────────────┼─────────┼─────────────────────┤
-│ Admin User    │ [Admin] │ Tea Boys Main Store │
+│ Admin User    │ [Admin] │ Sky Walk │
 │               │         │                     │
 │ ❌ Manager User NOT SHOWING!                   │
 └────────────────────────────────────────────────┘
@@ -101,8 +101,8 @@ profiles:
 ├────────────────────────────────────────────────┤
 │ User          │ Role      │ Store              │
 ├───────────────┼───────────┼────────────────────┤
-│ Manager User  │ [Manager] │ Tea Boys Main Store│ ✅ NOW VISIBLE!
-│ Admin User    │ [Admin]   │ Tea Boys Main Store│
+│ Manager User  │ [Manager] │ Sky Walk│ ✅ NOW VISIBLE!
+│ Admin User    │ [Admin]   │ Sky Walk│
 └────────────────────────────────────────────────┘
 ```
 

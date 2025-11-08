@@ -91,7 +91,7 @@ You should see:
 - Full Name: `Admin User`
 - Role: `admin`
 - Is Active: `true`
-- Store Name: `Tea Boys Main Store`
+- Store Name: `Sky Walk`
 
 ### Step 6: Login! 🎉
 

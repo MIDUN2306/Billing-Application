@@ -1,7 +1,7 @@
 # Admin Panel Implementation - Complete
 
 ## Overview
-A comprehensive admin panel has been created for managing stores, users, and roles in the multi-tenant Tea Boys POS system. The panel is fully responsive and works seamlessly across mobile, tablet, and desktop devices.
+A comprehensive admin panel has been created for managing stores, users, and roles in the multi-tenant DISA Info Tech system. The panel is fully responsive and works seamlessly across mobile, tablet, and desktop devices.
 
 ## Features Implemented
 

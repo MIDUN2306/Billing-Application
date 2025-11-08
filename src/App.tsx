@@ -12,7 +12,7 @@ import { ProtectedRoute } from './components/layout/ProtectedRoute';
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { TeaProductionHistoryPage } from './pages/dashboard/TeaProductionHistoryPage';
-import { POSPage } from './pages/pos/POSPage';
+import { POSPageNew } from './pages/pos/POSPageNew';
 import { SalesPage } from './pages/sales/SalesPage';
 import { SalesHistoryPage } from './pages/sales/SalesHistoryPage';
 import { SalesAnalyticsPage } from './pages/sales/SalesAnalyticsPage';
@@ -20,6 +20,7 @@ import { BillDownloadPage } from './pages/BillDownloadPage';
 import { PurchasesPage } from './pages/purchases/PurchasesPage';
 import { ExpensesPage } from './pages/expenses/ExpensesPage';
 import { PettyCashPage } from './pages/petty-cash/PettyCashPage';
+import { PreparationPage } from './pages/preparation/PreparationPage';
 import { ProductsPage } from './pages/products/ProductsPage';
 import { CategoriesPage } from './pages/categories/CategoriesPage';
 import { RawMaterialsPage } from './pages/raw-materials/RawMaterialsPage';
@@ -64,13 +65,14 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/tea-production-history" element={<TeaProductionHistoryPage />} />
-            <Route path="/pos" element={<POSPage />} />
+            <Route path="/pos" element={<POSPageNew />} />
             <Route path="/sales" element={<SalesPage />} />
             <Route path="/sales/analytics" element={<SalesAnalyticsPage />} />
             <Route path="/sales/history" element={<SalesHistoryPage />} />
             <Route path="/purchases" element={<PurchasesPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/petty-cash" element={<PettyCashPage />} />
+            <Route path="/preparation" element={<PreparationPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/products/categories" element={<CategoriesPage />} />
             <Route path="/raw-materials" element={<RawMaterialsPage />} />

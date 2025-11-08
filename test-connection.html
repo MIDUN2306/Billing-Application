@@ -174,7 +174,7 @@
         if (profileError) {
           showResult(`⚠️ ACCOUNT CREATED BUT PROFILE UPDATE FAILED!\n\nUser ID: ${authData.user.id}\nEmail: ${email}\nPassword: ${password}\n\nError: ${profileError.message}\n\nYou may need to manually update the profile in Supabase Dashboard.`, 'error');
         } else {
-          showResult(`✅ SUCCESS!\n\nAdmin account created and configured!\n\nEmail: ${email}\nPassword: ${password}\nRole: admin\nStore: Tea Boys Main Store\n\nYou can now login at http://localhost:5174`, 'success');
+          showResult(`✅ SUCCESS!\n\nAdmin account created and configured!\n\nEmail: ${email}\nPassword: ${password}\nRole: admin\nStore: Sky Walk\n\nYou can now login at http://localhost:5174`, 'success');
         }
       } catch (error) {
         if (error.message.includes('already registered')) {

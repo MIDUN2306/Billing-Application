@@ -82,8 +82,8 @@ Press: Cmd + Shift + R (Mac)
 ┌─────────────────────────────────────────────────────────┐
 │ USER          │ ROLE      │ STORE                      │
 ├───────────────┼───────────┼────────────────────────────┤
-│ Manager User  │ [Manager] │ Tea Boys Main Store        │
-│ Admin User    │ [Admin]   │ Tea Boys Main Store        │
+│ Manager User  │ [Manager] │ Sky Walk        │
+│ Admin User    │ [Admin]   │ Sky Walk        │
 └─────────────────────────────────────────────────────────┘
 ```
 
