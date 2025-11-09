@@ -1,0 +1,9 @@
+# Browsers that we support for Android 10 and modern devices
+> 0.5%
+last 2 versions
+Firefox ESR
+not dead
+Android >= 10
+Chrome >= 61
+Safari >= 11
+iOS >= 11

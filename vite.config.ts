@@ -7,4 +7,13 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    target: 'es2015',
+    cssTarget: 'chrome61',
+    minify: 'esbuild',
+    cssMinify: true,
+  },
+  css: {
+    postcss: './postcss.config.js',
+  },
 })
