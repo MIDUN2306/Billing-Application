@@ -344,7 +344,7 @@ export function RawMaterialsPage() {
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
+            className="bg-blue-700 text-white  btn-primary flex items-center justify-center gap-2 flex-1 sm:flex-initial"
           >
             <Plus className="w-5 h-5" />
             Add New Material

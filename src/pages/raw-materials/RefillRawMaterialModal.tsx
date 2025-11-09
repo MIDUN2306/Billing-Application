@@ -20,6 +20,8 @@ interface RefillRawMaterialModalProps {
 export function RefillRawMaterialModal({ stock, onClose, onSuccess }: RefillRawMaterialModalProps) {
   const { currentStore } = useStoreStore();
   const [loading, setLoading] = useState(false);
+  
+  // Initialize with per-unit price (purchase_price is already per-unit from database)
   const [formData, setFormData] = useState({
     quantity: '',
     purchase_price: stock.purchase_price.toString(),
@@ -119,7 +121,7 @@ export function RefillRawMaterialModal({ stock, onClose, onSuccess }: RefillRawM
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-secondary-500 mb-1">Last Price</p>
+                <p className="text-xs text-secondary-500 mb-1">Last Price Per {stock.unit}</p>
                 <p className="text-lg font-bold text-secondary-900">
                   ₹{stock.purchase_price.toFixed(2)}
                 </p>

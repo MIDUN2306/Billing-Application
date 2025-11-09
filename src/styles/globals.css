@@ -2,6 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Custom Properties for Android 10 compatibility */
+:root {
+  /* Primary: Burgundy */
+  --color-primary-50: #fdf2f4;
+  --color-primary-100: #fce7eb;
+  --color-primary-200: #f9d0d9;
+  --color-primary-300: #f4a8b8;
+  --color-primary-400: #ec7591;
+  --color-primary-500: #e0486d;
+  --color-primary-600: #c9294d;
+  --color-primary-700: #a91d3f;
+  --color-primary-800: #8b1a39;
+  --color-primary-900: #751835;
+
+  /* Secondary: Black with opacity */
+  --color-secondary-50: #f6f6f6;
+  --color-secondary-100: #e7e7e7;
+  --color-secondary-200: #d1d1d1;
+  --color-secondary-300: #b0b0b0;
+  --color-secondary-400: #888888;
+  --color-secondary-500: #6d6d6d;
+  --color-secondary-600: #5d5d5d;
+  --color-secondary-700: #4f4f4f;
+  --color-secondary-800: #454545;
+  --color-secondary-900: #3d3d3d;
+  --color-secondary-950: #1a1a1a;
+
+  /* Font families */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Poppins', system-ui, sans-serif;
+}
+
 /* Ensure proper box-sizing for all elements */
 @layer base {
   *, *::before, *::after {
@@ -18,46 +50,75 @@
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
   }
+
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-secondary-900);
+    background-color: #f9fafb;
+  }
 }
 
-body {
-  font-family: var(--font-sans);
-  color: var(--color-secondary-900);
-  background-color: #f9fafb;
-}
+/* Custom Button Styles - Android 10 Compatible */
+@layer components {
+  .btn-primary {
+    background-color: #8b1a39;
+    background-color: var(--color-primary-800);
+    color: white;
+    color: #ffffff;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.btn-primary {
-  background-color: var(--color-primary-800);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
+  .btn-primary:hover {
+    background-color: #a91d3f;
+    background-color: var(--color-primary-700);
+  }
 
-.btn-primary:hover {
-  background-color: var(--color-primary-700);
-}
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
-.btn-secondary {
-  background-color: white;
-  color: var(--color-primary-800);
-  border: 1px solid var(--color-primary-800);
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 500;
-  transition: background-color 0.2s;
-}
+  .btn-secondary {
+    background-color: white;
+    background-color: #ffffff;
+    color: #8b1a39;
+    color: var(--color-primary-800);
+    border: 1px solid #8b1a39;
+    border: 1px solid var(--color-primary-800);
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
-.btn-secondary:hover {
-  background-color: #fdf2f4;
-}
+  .btn-secondary:hover {
+    background-color: #fdf2f4;
+  }
 
-.card {
-  background-color: white;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  padding: 1.5rem;
+  .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .card {
+    background-color: white;
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    padding: 1.5rem;
+  }
 }
 
 
