@@ -1,131 +1,23 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* Ensure proper box-sizing for all elements */
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
 
-/* Prevent horizontal scroll on mobile */
-html, body {
-  overflow-x: hidden;
-  width: 100%;
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-  -ms-text-size-adjust: 100%;
-}
-
-/* Root CSS variables for better browser compatibility */
-:root {
-  /* Primary: Burgundy */
-  --color-primary-50: #fdf2f4;
-  --color-primary-100: #fce7eb;
-  --color-primary-200: #f9d0d9;
-  --color-primary-300: #f4a8b8;
-  --color-primary-400: #ec7591;
-  --color-primary-500: #e0486d;
-  --color-primary-600: #c9294d;
-  --color-primary-700: #a91d3f;
-  --color-primary-800: #8b1a39;
-  --color-primary-900: #751835;
-
-  /* Secondary: Black with opacity */
-  --color-secondary-50: #f6f6f6;
-  --color-secondary-100: #e7e7e7;
-  --color-secondary-200: #d1d1d1;
-  --color-secondary-300: #b0b0b0;
-  --color-secondary-400: #888888;
-  --color-secondary-500: #6d6d6d;
-  --color-secondary-600: #5d5d5d;
-  --color-secondary-700: #4f4f4f;
-  --color-secondary-800: #454545;
-  --color-secondary-900: #3d3d3d;
-  --color-secondary-950: #1a1a1a;
-
-  /* Accent: Blue */
-  --color-accent-50: #eff6ff;
-  --color-accent-100: #dbeafe;
-  --color-accent-200: #bfdbfe;
-  --color-accent-300: #93c5fd;
-  --color-accent-400: #60a5fa;
-  --color-accent-500: #3b82f6;
-  --color-accent-600: #2563eb;
-  --color-accent-700: #1d4ed8;
-  --color-accent-800: #1e40af;
-  --color-accent-900: #1e3a8a;
-
-  /* Neutral: Brown */
-  --color-neutral-50: #fafaf9;
-  --color-neutral-100: #f5f5f4;
-  --color-neutral-200: #e7e5e4;
-  --color-neutral-300: #d6d3d1;
-  --color-neutral-400: #a8a29e;
-  --color-neutral-500: #78716c;
-  --color-neutral-600: #57534e;
-  --color-neutral-700: #44403c;
-  --color-neutral-800: #292524;
-  --color-neutral-900: #1c1917;
-
-  /* Font families */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Poppins', system-ui, sans-serif;
-}
-
-/* Tailwind v4 @theme directive for modern browsers */
-@theme {
-  /* Primary: Burgundy */
-  --color-primary-50: #fdf2f4;
-  --color-primary-100: #fce7eb;
-  --color-primary-200: #f9d0d9;
-  --color-primary-300: #f4a8b8;
-  --color-primary-400: #ec7591;
-  --color-primary-500: #e0486d;
-  --color-primary-600: #c9294d;
-  --color-primary-700: #a91d3f;
-  --color-primary-800: #8b1a39;
-  --color-primary-900: #751835;
-
-  /* Secondary: Black with opacity */
-  --color-secondary-50: #f6f6f6;
-  --color-secondary-100: #e7e7e7;
-  --color-secondary-200: #d1d1d1;
-  --color-secondary-300: #b0b0b0;
-  --color-secondary-400: #888888;
-  --color-secondary-500: #6d6d6d;
-  --color-secondary-600: #5d5d5d;
-  --color-secondary-700: #4f4f4f;
-  --color-secondary-800: #454545;
-  --color-secondary-900: #3d3d3d;
-  --color-secondary-950: #1a1a1a;
-
-  /* Accent: Blue */
-  --color-accent-50: #eff6ff;
-  --color-accent-100: #dbeafe;
-  --color-accent-200: #bfdbfe;
-  --color-accent-300: #93c5fd;
-  --color-accent-400: #60a5fa;
-  --color-accent-500: #3b82f6;
-  --color-accent-600: #2563eb;
-  --color-accent-700: #1d4ed8;
-  --color-accent-800: #1e40af;
-  --color-accent-900: #1e3a8a;
-
-  /* Neutral: Brown */
-  --color-neutral-50: #fafaf9;
-  --color-neutral-100: #f5f5f4;
-  --color-neutral-200: #e7e5e4;
-  --color-neutral-300: #d6d3d1;
-  --color-neutral-400: #a8a29e;
-  --color-neutral-500: #78716c;
-  --color-neutral-600: #57534e;
-  --color-neutral-700: #44403c;
-  --color-neutral-800: #292524;
-  --color-neutral-900: #1c1917;
-
-  /* Font families */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Poppins', system-ui, sans-serif;
+  /* Prevent horizontal scroll on mobile */
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
 }
 
 body {
