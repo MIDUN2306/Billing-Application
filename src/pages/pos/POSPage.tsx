@@ -180,7 +180,7 @@ export function POSPage() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-medium text-gray-600">Current Bill</p>
-                  <p className="text-lg font-bold text-gray-900">₹{totals.total.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-gray-900">₹ {totals.total.toFixed(2)}</p>
                 </div>
                 {showMobileBill ? <ChevronUp className="w-5 h-5 ml-2" /> : <ChevronDown className="w-5 h-5 ml-2" />}
               </button>
@@ -209,7 +209,7 @@ export function POSPage() {
                       <tr key={item.id} className="border-b">
                         <td className="p-2">
                           <div className="font-medium text-gray-900">{item.name}</div>
-                          <div className="text-xs text-gray-500">₹{(item.mrp || 0).toFixed(2)} × {item.quantity}</div>
+                          <div className="text-xs text-gray-500">₹ {(item.mrp || 0).toFixed(2)} × {item.quantity}</div>
                         </td>
                         <td className="p-2">
                           <div className="flex items-center justify-center gap-1">
@@ -229,7 +229,7 @@ export function POSPage() {
                           </div>
                         </td>
                         <td className="p-2 text-right font-semibold">
-                          ₹{((item.mrp || 0) * item.quantity - item.discount).toFixed(2)}
+                          ₹ {((item.mrp || 0) * item.quantity - item.discount).toFixed(2)}
                         </td>
                         <td className="p-2">
                           <button
@@ -323,7 +323,7 @@ export function POSPage() {
                     <div className="flex flex-col">
                       <span className="text-xs font-medium text-gray-500 mb-1">Price</span>
                       <span className="text-2xl font-bold text-primary-600">
-                        ₹{(product.mrp || 0).toFixed(2)}
+                        ₹ {(product.mrp || 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex flex-col items-end">
@@ -415,11 +415,11 @@ export function POSPage() {
                           <div className="text-xs text-gray-500 font-mono">SKU: {item.sku}</div>
                         )}
                         <div className="text-xs text-gray-600 mt-1">
-                          ₹{(item.mrp || 0).toFixed(2)} × {item.quantity}
+                          ₹ {(item.mrp || 0).toFixed(2)} × {item.quantity}
                         </div>
                         {item.discount > 0 && (
                           <div className="text-xs text-red-600 mt-0.5">
-                            Discount: -₹{item.discount.toFixed(2)}
+                            Discount: -₹ {item.discount.toFixed(2)}
                           </div>
                         )}
                       </td>
@@ -458,7 +458,7 @@ export function POSPage() {
                         </div>
                       </td>
                       <td className="p-3 text-right font-bold text-gray-900">
-                        ₹{((item.mrp || 0) * item.quantity - item.discount).toFixed(2)}
+                        ₹ {((item.mrp || 0) * item.quantity - item.discount).toFixed(2)}
                       </td>
                       <td className="p-3">
                         <button
@@ -480,19 +480,19 @@ export function POSPage() {
             <div className="border-t-2 p-4 space-y-2 bg-gray-50">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 font-medium">Subtotal:</span>
-                <span className="font-semibold">₹{totals.subtotal.toFixed(2)}</span>
+                <span className="font-semibold">₹ {totals.subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 font-medium">Discount:</span>
-                <span className="text-red-600 font-semibold">-₹{totals.discount.toFixed(2)}</span>
+                <span className="text-red-600 font-semibold">-₹ {totals.discount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 font-medium">Tax:</span>
-                <span className="font-semibold">₹{totals.tax.toFixed(2)}</span>
+                <span className="font-semibold">₹ {totals.tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-2xl font-bold pt-3 border-t-2">
                 <span className="text-gray-800">Total:</span>
-                <span className="text-primary-600">₹{totals.total.toFixed(2)}</span>
+                <span className="text-primary-600">₹ {totals.total.toFixed(2)}</span>
               </div>
 
               <button

@@ -27,6 +27,7 @@ import { RawMaterialsPage } from './pages/raw-materials/RawMaterialsPage';
 import { InventoryOverviewPage } from './pages/inventory/InventoryOverviewPage';
 import { RawMaterialsInventoryPage } from './pages/inventory/RawMaterialsInventoryPage';
 import { AdminPage } from './pages/admin/AdminPage';
+import ExpirationPage from './pages/expiration/ExpirationPage';
 
 function App() {
   const { initialize, initialized } = useAuthStore();
@@ -78,6 +79,7 @@ function App() {
             <Route path="/raw-materials" element={<RawMaterialsPage />} />
             <Route path="/inventory" element={<InventoryOverviewPage />} />
             <Route path="/inventory/raw-materials" element={<RawMaterialsInventoryPage />} />
+            <Route path="/expiration" element={<ExpirationPage />} />
             
             {/* Manager+ Routes */}
             <Route element={<ProtectedRoute requiredRole="manager" />}>

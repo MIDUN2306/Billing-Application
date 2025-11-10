@@ -261,7 +261,7 @@ export function PurchaseFormModal({ onClose, onSuccess }: PurchaseFormModalProps
                 <option value="">Select Product</option>
                 {products.map(product => (
                   <option key={product.id} value={product.id}>
-                    {product.name} - ₹{product.mrp}
+                    {product.name} - ₹ {product.mrp}
                   </option>
                 ))}
               </select>
@@ -314,7 +314,7 @@ export function PurchaseFormModal({ onClose, onSuccess }: PurchaseFormModalProps
                         />
                       </td>
                       <td className="px-4 py-3 text-right text-sm font-medium">
-                        ₹{(item.quantity * item.unit_price).toFixed(2)}
+                        ₹ {(item.quantity * item.unit_price).toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
@@ -338,15 +338,15 @@ export function PurchaseFormModal({ onClose, onSuccess }: PurchaseFormModalProps
               <div className="max-w-sm ml-auto space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Subtotal:</span>
-                  <span className="text-secondary-900">₹{totals.subtotal.toFixed(2)}</span>
+                  <span className="text-secondary-900">₹ {totals.subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Tax:</span>
-                  <span className="text-secondary-900">₹{totals.tax.toFixed(2)}</span>
+                  <span className="text-secondary-900">₹ {totals.tax.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Total:</span>
-                  <span className="text-primary-600">₹{totals.total.toFixed(2)}</span>
+                  <span className="text-primary-600">₹ {totals.total.toFixed(2)}</span>
                 </div>
               </div>
             </div>

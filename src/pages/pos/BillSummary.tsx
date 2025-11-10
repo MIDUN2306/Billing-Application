@@ -60,7 +60,7 @@ export function BillSummary({ totals, itemCount, unitCount }: BillSummaryProps) 
           <span className="text-white/90 font-semibold text-base">Total Amount</span>
           <div className="text-right">
             <div className="text-3xl font-bold text-white">
-              ₹{totals.total.toFixed(2)}
+              ₹ {totals.total.toFixed(2)}
             </div>
           </div>
         </div>
@@ -74,7 +74,7 @@ export function BillSummary({ totals, itemCount, unitCount }: BillSummaryProps) 
         <div className="mt-3 text-center">
           <div className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold">
             <TrendingDown className="w-3 h-3" />
-            You saved ₹{totals.discount.toFixed(2)}
+            You saved ₹ {totals.discount.toFixed(2)}
           </div>
         </div>
       )}

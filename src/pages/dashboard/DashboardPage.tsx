@@ -231,7 +231,7 @@ export function DashboardPage() {
               <ArrowRight className="w-5 h-5 text-secondary-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" />
             </div>
             <h3 className="text-xs font-semibold text-secondary-600 uppercase tracking-wider mb-2">Sales Today</h3>
-            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">₹{salesData.total_amount.toLocaleString()}</p>
+            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">₹ {salesData.total_amount.toLocaleString()}</p>
             <p className="text-sm text-secondary-500">{salesData.transaction_count} transactions</p>
           </div>
         </button>
@@ -274,7 +274,7 @@ export function DashboardPage() {
               <ArrowRight className="w-5 h-5 text-secondary-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" />
             </div>
             <h3 className="text-xs font-semibold text-secondary-600 uppercase tracking-wider mb-2">Salary Paid</h3>
-            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">₹{salaryData.total_paid.toLocaleString()}</p>
+            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">₹ {salaryData.total_paid.toLocaleString()}</p>
             <p className="text-sm text-secondary-500">{salaryData.employees_paid} employees</p>
           </div>
         </button>
@@ -312,7 +312,7 @@ export function DashboardPage() {
               <ArrowRight className="w-5 h-5 text-secondary-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-2 transition-all duration-300" />
             </div>
             <h3 className="text-xs font-semibold text-secondary-600 uppercase tracking-wider mb-2">Petty Cash</h3>
-            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">₹{pettyCashData.total_given.toLocaleString()}</p>
+            <p className="text-3xl font-bold text-secondary-900 mb-1 group-hover:text-primary-700 transition-colors duration-300">₹ {pettyCashData.total_given.toLocaleString()}</p>
             <p className="text-sm text-secondary-500">{pettyCashData.transaction_count} transactions today</p>
           </div>
         </button>
@@ -324,7 +324,7 @@ export function DashboardPage() {
         <h2 className="text-base font-semibold text-secondary-900 mb-5">Today's Summary</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
-            <p className="text-2xl font-bold text-primary-700">₹{salesData.total_amount.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-primary-700">₹ {salesData.total_amount.toLocaleString()}</p>
             <p className="text-xs text-secondary-600 mt-1 uppercase tracking-wide">Revenue</p>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
@@ -332,7 +332,7 @@ export function DashboardPage() {
             <p className="text-xs text-secondary-600 mt-1 uppercase tracking-wide">Products</p>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
-            <p className="text-2xl font-bold text-primary-600">₹{pettyCashData.total_given.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-primary-600">₹ {pettyCashData.total_given.toLocaleString()}</p>
             <p className="text-xs text-secondary-600 mt-1 uppercase tracking-wide">Petty Cash</p>
           </div>
           <div className="text-center p-3 bg-white rounded-lg border border-gray-100">

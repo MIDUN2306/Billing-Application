@@ -467,7 +467,7 @@ export function RawMaterialsPage() {
                       Purchase Price
                     </p>
                     <p className="text-xl font-bold text-secondary-900">
-                      ₹{stock.purchase_price.toFixed(2)}
+                      ₹ {stock.purchase_price.toFixed(2)}
                       <span className="text-sm font-medium text-secondary-600">/{stock.unit}</span>
                     </p>
                   </div>
@@ -547,7 +547,7 @@ export function RawMaterialsPage() {
                           <span className="font-medium">{group.total_quantity.toFixed(2)}</span> {group.unit}
                         </td>
                         <td className="px-6 py-4 text-sm text-right font-bold text-primary-900">
-                          ₹{group.total_cost.toFixed(2)}
+                          ₹ {group.total_cost.toFixed(2)}
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
@@ -613,10 +613,10 @@ export function RawMaterialsPage() {
                                         {purchase.quantity} {purchase.unit}
                                       </td>
                                       <td className="px-6 py-3 text-sm text-right text-secondary-700">
-                                        ₹{purchase.purchase_price.toFixed(2)}
+                                        ₹ {purchase.purchase_price.toFixed(2)}
                                       </td>
                                       <td className="px-6 py-3 text-sm text-right font-medium text-secondary-900">
-                                        ₹{purchase.total_cost.toFixed(2)}
+                                        ₹ {purchase.total_cost.toFixed(2)}
                                       </td>
                                       <td className="px-6 py-3 text-sm text-secondary-600">
                                         {purchase.notes || '-'}

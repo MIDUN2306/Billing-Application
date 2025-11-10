@@ -405,7 +405,7 @@ export function POSPageRedesigned() {
                         <div>
                           <p className="text-xs text-gray-500 mb-1">Price</p>
                           <p className={`text-2xl font-bold ${isOutOfStock ? 'text-gray-400' : 'text-primary-600'}`}>
-                            ₹{product.mrp.toFixed(2)}
+                            ₹ {product.mrp.toFixed(2)}
                           </p>
                         </div>
                         <div className="text-right">
@@ -487,7 +487,7 @@ export function POSPageRedesigned() {
         >
           <ShoppingCart className="w-6 h-6" />
           <span className="font-bold">{cartItemCount}</span>
-          <span className="text-sm">₹{totals.total.toFixed(0)}</span>
+          <span className="text-sm">₹ {totals.total.toFixed(0)}</span>
         </button>
       )}
 

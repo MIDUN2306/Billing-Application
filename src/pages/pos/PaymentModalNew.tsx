@@ -209,12 +209,12 @@ export function PaymentModalNew({ cart, customer, totals, onSuccess, onClose }: 
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900">{item.name}</p>
                     <p className="text-xs text-gray-500">
-                      ₹{item.mrp.toFixed(2)} × {item.quantity}
-                      {item.discount > 0 && ` (Disc: -₹${item.discount.toFixed(2)})`}
+                      ₹ {item.mrp.toFixed(2)} × {item.quantity}
+                      {item.discount > 0 && ` (Disc: -₹ ${item.discount.toFixed(2)})`}
                     </p>
                   </div>
                   <p className="text-sm font-semibold text-gray-900">
-                    ₹{(item.mrp * item.quantity - item.discount).toFixed(2)}
+                    ₹ {(item.mrp * item.quantity - item.discount).toFixed(2)}
                   </p>
                 </div>
               ))}
@@ -225,19 +225,19 @@ export function PaymentModalNew({ cart, customer, totals, onSuccess, onClose }: 
           <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium">₹{totals.subtotal.toFixed(2)}</span>
+              <span className="font-medium">₹ {totals.subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Discount:</span>
-              <span className="text-red-600 font-medium">-₹{totals.discount.toFixed(2)}</span>
+              <span className="text-red-600 font-medium">-₹ {totals.discount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Tax:</span>
-              <span className="font-medium">₹{totals.tax.toFixed(2)}</span>
+              <span className="font-medium">₹ {totals.tax.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-xl font-bold pt-2 border-t-2 border-gray-300">
               <span>Total:</span>
-              <span className="text-primary-600">₹{totals.total.toFixed(2)}</span>
+              <span className="text-primary-600">₹ {totals.total.toFixed(2)}</span>
             </div>
           </div>
 
@@ -301,7 +301,7 @@ export function PaymentModalNew({ cart, customer, totals, onSuccess, onClose }: 
               />
               {change > 0 && (
                 <p className="text-sm text-green-600 mt-1">
-                  Change: ₹{change.toFixed(2)}
+                  Change: ₹ {change.toFixed(2)}
                 </p>
               )}
             </div>
@@ -316,7 +316,7 @@ export function PaymentModalNew({ cart, customer, totals, onSuccess, onClose }: 
               )}
               {customer.current_balance > 0 && (
                 <p className="text-xs text-red-600 mt-1">
-                  Current Balance: ₹{customer.current_balance.toFixed(2)}
+                  Current Balance: ₹ {customer.current_balance.toFixed(2)}
                 </p>
               )}
             </div>

@@ -118,7 +118,7 @@ export function CustomerSelector({ onSelect, onClose }: CustomerSelectorProps) {
                     {customer.current_balance > 0 && (
                       <div className="text-sm">
                         <span className="text-red-600 font-medium">
-                          ₹{customer.current_balance.toFixed(2)} due
+                          ₹ {customer.current_balance.toFixed(2)} due
                         </span>
                       </div>
                     )}

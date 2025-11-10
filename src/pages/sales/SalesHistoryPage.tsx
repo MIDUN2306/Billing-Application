@@ -304,7 +304,7 @@ export function SalesHistoryPage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Total Sales</p>
           <p className="text-2xl font-bold text-gray-900">
-            ₹{summary?.total_sales?.toFixed(2) || '0.00'}
+            ₹ {summary?.total_sales?.toFixed(2) || '0.00'}
           </p>
           <p className="text-xs text-gray-500 mt-1">
             {summary?.total_transactions || 0} transactions
@@ -313,13 +313,13 @@ export function SalesHistoryPage() {
         <div className="bg-white rounded-lg shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Amount Received</p>
           <p className="text-2xl font-bold text-green-600">
-            ₹{summary?.total_paid?.toFixed(2) || '0.00'}
+            ₹ {summary?.total_paid?.toFixed(2) || '0.00'}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-sm p-6">
           <p className="text-sm text-gray-600 mb-1">Pending Amount</p>
           <p className="text-2xl font-bold text-red-600">
-            ₹{summary?.total_pending?.toFixed(2) || '0.00'}
+            ₹ {summary?.total_pending?.toFixed(2) || '0.00'}
           </p>
         </div>
       </div>
@@ -363,7 +363,7 @@ export function SalesHistoryPage() {
           <div className="mt-4 pt-4 border-t">
             <p className="text-xs text-gray-600">Average Transaction Value</p>
             <p className="text-lg font-semibold text-gray-900">
-              ₹{summary.avg_transaction_value?.toFixed(2) || '0.00'}
+              ₹ {summary.avg_transaction_value?.toFixed(2) || '0.00'}
             </p>
           </div>
         </div>
@@ -435,10 +435,10 @@ export function SalesHistoryPage() {
                         {sale.items_count} items
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
-                        ₹{sale.total_amount.toFixed(2)}
+                        ₹ {sale.total_amount.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-green-600">
-                        ₹{sale.paid_amount.toFixed(2)}
+                        ₹ {sale.paid_amount.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -618,12 +618,12 @@ function SaleDetailsModal({
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-center">{item.quantity}</td>
-                      <td className="px-4 py-3 text-sm text-right">₹{item.unit_price.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-right">₹ {item.unit_price.toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-right text-red-600">
-                        {item.discount_amount > 0 ? `-₹${item.discount_amount.toFixed(2)}` : '-'}
+                        {item.discount_amount > 0 ? `-₹ ${item.discount_amount.toFixed(2)}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-right font-medium">
-                        ₹{item.total_amount.toFixed(2)}
+                        ₹ {item.total_amount.toFixed(2)}
                       </td>
                     </tr>
                   ))}
@@ -636,16 +636,16 @@ function SaleDetailsModal({
           <div className="bg-gray-50 rounded-lg p-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Total Amount:</span>
-              <span className="font-semibold">₹{sale.total_amount.toFixed(2)}</span>
+              <span className="font-semibold">₹ {sale.total_amount.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Paid Amount:</span>
-              <span className="font-semibold text-green-600">₹{sale.paid_amount.toFixed(2)}</span>
+              <span className="font-semibold text-green-600">₹ {sale.paid_amount.toFixed(2)}</span>
             </div>
             {sale.balance_amount > 0 && (
               <div className="flex justify-between text-sm pt-2 border-t">
                 <span className="text-gray-600">Balance:</span>
-                <span className="font-semibold text-red-600">₹{sale.balance_amount.toFixed(2)}</span>
+                <span className="font-semibold text-red-600">₹ {sale.balance_amount.toFixed(2)}</span>
               </div>
             )}
           </div>

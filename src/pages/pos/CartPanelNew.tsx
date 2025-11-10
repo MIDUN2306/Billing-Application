@@ -133,26 +133,26 @@ export function CartPanelNew({
             <div className="bg-gray-50 rounded-lg p-3 space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600">Items ({itemCount})</span>
-                <span className="font-semibold text-gray-900">₹{totals.subtotal.toFixed(2)}</span>
+                <span className="font-semibold text-gray-900">₹ {totals.subtotal.toFixed(2)}</span>
               </div>
               
               {totals.discount > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Discount</span>
-                  <span className="font-semibold text-red-600">-₹{totals.discount.toFixed(2)}</span>
+                  <span className="font-semibold text-red-600">-₹ {totals.discount.toFixed(2)}</span>
                 </div>
               )}
               
               {totals.tax > 0 && (
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-600">Tax</span>
-                  <span className="font-semibold text-gray-900">₹{totals.tax.toFixed(2)}</span>
+                  <span className="font-semibold text-gray-900">₹ {totals.tax.toFixed(2)}</span>
                 </div>
               )}
               
               <div className="pt-2 border-t border-gray-300 flex items-center justify-between">
                 <span className="font-bold text-gray-900">Total Amount</span>
-                <span className="text-2xl font-bold text-primary-600">₹{totals.total.toFixed(2)}</span>
+                <span className="text-2xl font-bold text-primary-600">₹ {totals.total.toFixed(2)}</span>
               </div>
               
               <div className="text-xs text-gray-500 text-right">

@@ -361,7 +361,7 @@ export function POSPageNew() {
                         <span className={`text-lg sm:text-xl font-bold ${
                           isOutOfStock ? 'text-gray-400' : 'text-primary-600'
                         }`}>
-                          ₹{(product.mrp || 0).toFixed(2)}
+                          ₹ {(product.mrp || 0).toFixed(2)}
                         </span>
                         {isTeaProduct ? (
                           <span className={`text-xs font-medium mt-0.5 ${

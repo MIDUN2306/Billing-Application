@@ -123,7 +123,7 @@ export function RefillRawMaterialModal({ stock, onClose, onSuccess }: RefillRawM
               <div className="text-right">
                 <p className="text-xs text-secondary-500 mb-1">Last Price Per {stock.unit}</p>
                 <p className="text-lg font-bold text-secondary-900">
-                  ₹{stock.purchase_price.toFixed(2)}
+                  ₹ {stock.purchase_price.toFixed(2)}
                 </p>
               </div>
             </div>

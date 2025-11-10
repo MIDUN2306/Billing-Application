@@ -182,3 +182,59 @@ export interface ProductionLogWithDetails extends ProductionLog {
   has_ingredients: boolean;
   template_yield: number | null;
 }
+
+// Stock Expiration Types
+export interface StockExpiration {
+  id: string;
+  store_id: string;
+  item_type: 'raw_material' | 'tea_stock' | 'product';
+  item_id: string | null;
+  item_name: string;
+  sku: string | null;
+  quantity_expired: number;
+  unit: string;
+  stock_before_expiration: number;
+  stock_after_expiration: number;
+  expired_date: string;
+  expired_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExpirationSummary {
+  store_id: string;
+  item_name: string;
+  item_type: 'raw_material' | 'tea_stock' | 'product';
+  sku: string | null;
+  unit: string;
+  expiration_count: number;
+  total_quantity_expired: number;
+  first_expiration_date: string;
+  last_expiration_date: string;
+  last_updated: string;
+}
+
+export interface ExpirationDetail {
+  id: string;
+  item_type: 'raw_material' | 'tea_stock' | 'product';
+  item_name: string;
+  sku: string | null;
+  quantity_expired: number;
+  unit: string;
+  stock_before_expiration: number;
+  stock_after_expiration: number;
+  expired_date: string;
+  expired_by_name: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface AvailableStockItem {
+  id: string;
+  name: string;
+  type: 'raw_material' | 'tea_stock' | 'product';
+  sku: string | null;
+  current_stock: number;
+  unit: string;
+}

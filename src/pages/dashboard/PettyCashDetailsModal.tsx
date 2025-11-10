@@ -158,7 +158,7 @@ export function PettyCashDetailsModal({ isOpen, onClose, startDate, endDate, fil
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm font-semibold text-purple-700">
-                          ₹{record.amount.toLocaleString()}
+                          ₹ {record.amount.toLocaleString()}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -181,7 +181,7 @@ export function PettyCashDetailsModal({ isOpen, onClose, startDate, endDate, fil
                       Total:
                     </td>
                     <td className="px-6 py-4 text-right text-lg font-bold text-purple-700">
-                      ₹{totalAmount.toLocaleString()}
+                      ₹ {totalAmount.toLocaleString()}
                     </td>
                     <td colSpan={2}></td>
                   </tr>

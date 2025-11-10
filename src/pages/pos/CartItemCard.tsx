@@ -50,10 +50,10 @@ export function CartItemCard({ item, onUpdateQuantity, onUpdateDiscount, onRemov
       {/* Price Info */}
       <div className="flex items-center justify-between mb-3 text-sm">
         <span className="text-gray-600">
-          ₹{item.mrp.toFixed(2)} × {item.quantity} {item.unit}
+          ₹ {item.mrp.toFixed(2)} × {item.quantity} {item.unit}
         </span>
         <span className="font-semibold text-gray-900">
-          ₹{(item.mrp * item.quantity).toFixed(2)}
+          ₹ {(item.mrp * item.quantity).toFixed(2)}
         </span>
       </div>
 
@@ -125,11 +125,11 @@ export function CartItemCard({ item, onUpdateQuantity, onUpdateDiscount, onRemov
         <div className="text-right">
           {item.discount > 0 && (
             <div className="text-xs text-gray-500 line-through">
-              ₹{(item.mrp * item.quantity).toFixed(2)}
+              ₹ {(item.mrp * item.quantity).toFixed(2)}
             </div>
           )}
           <div className="text-xl font-bold text-primary-600">
-            ₹{itemTotal.toFixed(2)}
+            ₹ {itemTotal.toFixed(2)}
           </div>
         </div>
       </div>

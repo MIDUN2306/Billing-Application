@@ -156,7 +156,7 @@ export function RawMaterialsStockModal({ isOpen, onClose }: Props) {
                         Last Purchase Price
                       </p>
                       <p className="text-lg font-bold text-gray-900">
-                        ₹{stock.purchase_price.toFixed(2)} <span className="text-sm font-normal text-gray-500">per {stock.unit}</span>
+                        ₹ {stock.purchase_price.toFixed(2)} <span className="text-sm font-normal text-gray-500">per {stock.unit}</span>
                       </p>
                     </div>
 

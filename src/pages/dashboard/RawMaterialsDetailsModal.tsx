@@ -180,11 +180,11 @@ export function RawMaterialsDetailsModal({ isOpen, onClose, startDate, endDate, 
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm text-gray-900">₹{purchase.purchase_price.toFixed(2)}</div>
+                        <div className="text-sm text-gray-900">₹ {purchase.purchase_price.toFixed(2)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm font-semibold text-orange-700">
-                          ₹{purchase.total_cost.toLocaleString()}
+                          ₹ {purchase.total_cost.toLocaleString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -211,7 +211,7 @@ export function RawMaterialsDetailsModal({ isOpen, onClose, startDate, endDate, 
                       Total:
                     </td>
                     <td className="px-6 py-4 text-right text-lg font-bold text-orange-700">
-                      ₹{totalCost.toLocaleString()}
+                      ₹ {totalCost.toLocaleString()}
                     </td>
                     <td></td>
                   </tr>

@@ -144,7 +144,7 @@ export function PaymentMethodDetailsModal({
               <span className="text-sm font-medium">Total Amount</span>
             </div>
             <p className="text-2xl font-bold" style={{ color: methodColor }}>
-              ₹{totalAmount.toLocaleString()}
+              ₹ {totalAmount.toLocaleString()}
             </p>
           </div>
           <div className="bg-white rounded-lg p-4 shadow-sm">
@@ -215,7 +215,7 @@ export function PaymentMethodDetailsModal({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm font-semibold" style={{ color: methodColor }}>
-                          ₹{transaction.total_amount.toLocaleString()}
+                          ₹ {transaction.total_amount.toLocaleString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">

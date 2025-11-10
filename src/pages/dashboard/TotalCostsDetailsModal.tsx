@@ -167,7 +167,7 @@ export function TotalCostsDetailsModal({ isOpen, onClose, startDate, endDate, fi
                       </span>
                     </div>
                     <p className={`text-2xl font-bold ${category.color}`}>
-                      ₹{category.amount.toLocaleString()}
+                      ₹ {category.amount.toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
                       {category.items.length} transaction{category.items.length !== 1 ? 's' : ''}
@@ -211,7 +211,7 @@ export function TotalCostsDetailsModal({ isOpen, onClose, startDate, endDate, fi
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right">
                                 <div className={`text-sm font-semibold ${category.color}`}>
-                                  ₹{item.amount.toLocaleString()}
+                                  ₹ {item.amount.toLocaleString()}
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
@@ -237,7 +237,7 @@ export function TotalCostsDetailsModal({ isOpen, onClose, startDate, endDate, fi
                     </div>
                   </div>
                   <p className="text-3xl font-bold text-red-700">
-                    ₹{totalCost.toLocaleString()}
+                    ₹ {totalCost.toLocaleString()}
                   </p>
                 </div>
               </div>

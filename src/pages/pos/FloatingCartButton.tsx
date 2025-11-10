@@ -50,7 +50,7 @@ export function FloatingCartButton({ itemCount, totalAmount, onClick, hasItems }
         {!isScrolled && (
           <div className="flex flex-col items-start">
             <span className="text-xs font-medium opacity-90">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
-            <span className="text-lg font-bold">₹{totalAmount.toFixed(2)}</span>
+            <span className="text-lg font-bold">₹ {totalAmount.toFixed(2)}</span>
           </div>
         )}
       </div>

@@ -7,7 +7,8 @@ import {
   Receipt,
   Wallet,
   Shield,
-  Coffee
+  Coffee,
+  Trash2
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Sales History', href: '/sales/history', icon: Receipt, roles: ['staff', 'manager', 'admin'] },
   { name: 'Preparation', href: '/preparation', icon: Coffee, roles: ['staff', 'manager', 'admin'] },
   { name: 'Stock', href: '/raw-materials', icon: Milk, roles: ['staff', 'manager', 'admin'] },
+  { name: 'Expiration', href: '/expiration', icon: Trash2, roles: ['staff', 'manager', 'admin'] },
   { name: 'Petty Cash', href: '/petty-cash', icon: Wallet, roles: ['staff', 'manager', 'admin'] },
   { name: 'Admin Panel', href: '/admin', icon: Shield, roles: ['admin'] },
 ];
