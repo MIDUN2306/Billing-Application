@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Eye, Package, Calendar, Hash } from 'lucide-react';
 import { useExpirationStore } from '../../stores/expirationStore';
 import ExpirationDetailsModal from './ExpirationDetailsModal';

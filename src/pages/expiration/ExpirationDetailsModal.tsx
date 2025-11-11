@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { X, Calendar, User, Package, TrendingDown } from 'lucide-react';
 import { useExpirationStore } from '../../stores/expirationStore';
 

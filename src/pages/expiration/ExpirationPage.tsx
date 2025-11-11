@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Trash2, RefreshCw } from 'lucide-react';
 import { useExpirationStore } from '../../stores/expirationStore';
 import ExpireStockForm from './ExpireStockForm';
