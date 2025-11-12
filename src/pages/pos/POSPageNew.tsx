@@ -51,8 +51,8 @@ export function POSPageNew() {
         setRefreshing(true);
       }
       
-      // Get products
-      const { data: productsData, error: productsError } = await supabase
+      // Get products - Remove duplicates by using a Map with product ID as key
+      const { data: productsDataRaw, error: productsError } = await supabase
         .from('v_pos_products_with_stock')
         .select('id, name, sku, category, mrp, unit, quantity, stock_status, is_ready_to_use')
         .eq('store_id', currentStore!.id)
@@ -60,6 +60,11 @@ export function POSPageNew() {
         .order('name');
 
       if (productsError) throw productsError;
+      
+      // Remove duplicates by ID
+      const productsData = productsDataRaw 
+        ? Array.from(new Map(productsDataRaw.map(p => [p.id, p])).values())
+        : [];
       
       // Get tea stock
       const { data: teaStockData } = await supabase

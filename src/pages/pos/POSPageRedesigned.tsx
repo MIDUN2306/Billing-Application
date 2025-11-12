@@ -98,23 +98,33 @@ export function POSPageRedesigned() {
         setRefreshing(true);
       }
       
-      // Load regular products
-      const { data: regularProducts, error: regularError } = await supabase
+      // Load regular products - Remove duplicates by using a Map with product ID as key
+      const { data: regularProductsRaw, error: regularError } = await supabase
         .from('v_product_stock_status')
         .select('id, name, sku, mrp, unit, quantity, category_name, category_id')
         .eq('store_id', currentStore.id)
         .gt('quantity', 0)
         .order('name');
+      
+      // Remove duplicates by ID
+      const regularProducts = regularProductsRaw 
+        ? Array.from(new Map(regularProductsRaw.map(p => [p.id, p])).values())
+        : [];
 
       if (regularError) throw regularError;
 
-      // Load tea products with stock
-      const { data: teaProducts, error: teaError } = await supabase
+      // Load tea products with stock - Remove duplicates by using a Map with product ID as key
+      const { data: teaProductsRaw, error: teaError } = await supabase
         .from('v_tea_products_with_stock')
         .select('id, name, sku, mrp, category, tea_portion_ml, available_ml, available_servings, available_liters')
         .eq('store_id', currentStore.id);
 
       if (teaError) throw teaError;
+      
+      // Remove duplicates by ID
+      const teaProducts = teaProductsRaw 
+        ? Array.from(new Map(teaProductsRaw.map(p => [p.id, p])).values())
+        : [];
 
       // Combine products, marking tea products
       const allProducts = [

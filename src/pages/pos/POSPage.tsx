@@ -40,15 +40,21 @@ export function POSPage() {
       if (isRefresh) {
         setRefreshing(true);
       }
-      // Load ready-to-use raw materials directly as products
-      const { data, error } = await supabase
+      // Load ready-to-use raw materials directly as products - Remove duplicates by using a Map with product ID as key
+      const { data: dataRaw, error } = await supabase
         .from('v_pos_ready_to_use_products')
         .select('id, name, sku, mrp, unit, quantity, category_name, stock_status')
         .eq('store_id', currentStore!.id)
         .order('name');
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      // Remove duplicates by ID
+      const data = dataRaw 
+        ? Array.from(new Map(dataRaw.map(p => [p.id, p])).values())
+        : [];
+      
+      setProducts(data);
       
       if (isRefresh) {
         toast.success('Products refreshed');
