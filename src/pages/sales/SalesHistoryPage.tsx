@@ -48,6 +48,7 @@ interface SalesSummary {
 }
 
 type DateFilter = 'today' | 'yesterday' | 'last7days' | 'last30days' | 'custom';
+type PaymentMethodFilter = 'all' | 'cash' | 'card' | 'upi' | 'credit' | 'bank_transfer';
 
 export function SalesHistoryPage() {
   const { currentStore } = useStoreStore();
@@ -55,6 +56,7 @@ export function SalesHistoryPage() {
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<PaymentMethodFilter>('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,7 +71,7 @@ export function SalesHistoryPage() {
       loadSales();
       loadSummary();
     }
-  }, [currentStore, dateFilter, customStartDate, customEndDate]);
+  }, [currentStore, dateFilter, paymentMethodFilter, customStartDate, customEndDate]);
 
   useEffect(() => {
     if (currentStore) {
@@ -78,14 +80,17 @@ export function SalesHistoryPage() {
   }, [currentPage, searchTerm]);
 
   const getDateRange = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Get current date in local timezone
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     let startDate = new Date(today);
     let endDate = new Date(today);
-    endDate.setHours(23, 59, 59, 999);
 
     switch (dateFilter) {
+      case 'today':
+        // Today: start and end are the same date
+        break;
       case 'yesterday':
         startDate.setDate(startDate.getDate() - 1);
         endDate.setDate(endDate.getDate() - 1);
@@ -97,17 +102,26 @@ export function SalesHistoryPage() {
         startDate.setDate(startDate.getDate() - 29);
         break;
       case 'custom':
-        if (customStartDate) startDate = new Date(customStartDate);
+        if (customStartDate) {
+          startDate = new Date(customStartDate + 'T00:00:00');
+        }
         if (customEndDate) {
-          endDate = new Date(customEndDate);
-          endDate.setHours(23, 59, 59, 999);
+          endDate = new Date(customEndDate + 'T00:00:00');
         }
         break;
     }
 
+    // Format dates as YYYY-MM-DD in local timezone
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     return {
-      start: startDate.toISOString().split('T')[0],
-      end: endDate.toISOString().split('T')[0],
+      start: formatDate(startDate),
+      end: formatDate(endDate),
     };
   };
 
@@ -119,6 +133,7 @@ export function SalesHistoryPage() {
         p_store_id: currentStore!.id,
         p_start_date: start,
         p_end_date: end,
+        p_payment_method: paymentMethodFilter === 'all' ? null : paymentMethodFilter,
       });
 
       if (error) throw error;
@@ -140,6 +155,7 @@ export function SalesHistoryPage() {
         p_store_id: currentStore!.id,
         p_start_date: start,
         p_end_date: end,
+        p_payment_method: paymentMethodFilter === 'all' ? null : paymentMethodFilter,
         p_search_term: searchTerm || null,
         p_page: currentPage,
         p_page_size: pageSize,
@@ -285,6 +301,35 @@ export function SalesHistoryPage() {
             </div>
           </div>
         )}
+
+        {/* Payment Method Filter */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Payment Method
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: 'all', label: 'All Methods' },
+              { value: 'cash', label: 'Cash' },
+              { value: 'card', label: 'Card' },
+              { value: 'upi', label: 'UPI' },
+              { value: 'credit', label: 'Credit' },
+              { value: 'bank_transfer', label: 'Bank Transfer' },
+            ].map((method) => (
+              <button
+                key={method.value}
+                onClick={() => setPaymentMethodFilter(method.value as PaymentMethodFilter)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  paymentMethodFilter === method.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {method.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* Search */}
         <div className="relative">

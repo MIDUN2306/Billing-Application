@@ -89,6 +89,39 @@ export const useAuthStore = create<AuthStore>()(
               });
             }
           });
+
+          // Handle page visibility changes - refresh session when tab becomes visible
+          if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', async () => {
+              if (!document.hidden) {
+                // Tab became visible - check session validity
+                const { data: { session } } = await supabase.auth.getSession();
+                
+                if (session?.user) {
+                  // Session exists, refresh profile if needed
+                  const { lastProfileFetch } = get();
+                  const now = Date.now();
+                  const shouldRefresh = !lastProfileFetch || (now - lastProfileFetch) > PROFILE_CACHE_DURATION;
+                  
+                  if (shouldRefresh) {
+                    const freshProfile = await getUserProfile(session.user.id);
+                    set({ 
+                      user: session.user,
+                      profile: freshProfile,
+                      lastProfileFetch: now
+                    });
+                  }
+                } else {
+                  // No session - user might have been logged out
+                  set({ 
+                    user: null, 
+                    profile: null,
+                    lastProfileFetch: null
+                  });
+                }
+              }
+            });
+          }
         } catch (error) {
           console.error('Auth initialization error:', error);
           set({ 
