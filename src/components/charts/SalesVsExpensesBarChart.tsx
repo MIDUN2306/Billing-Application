@@ -11,9 +11,10 @@ interface DataPoint {
 interface Props {
   data: DataPoint[];
   loading?: boolean;
+  onExpensesClick?: () => void;
 }
 
-export function SalesVsExpensesBarChart({ data, loading }: Props) {
+export function SalesVsExpensesBarChart({ data, loading, onExpensesClick }: Props) {
   const chartData = useMemo(() => {
     if (!data || data.length === 0) return null;
 
@@ -163,7 +164,7 @@ export function SalesVsExpensesBarChart({ data, loading }: Props) {
             </g>
           ))}
 
-          {/* Expenses Bar (Red) */}
+          {/* Expenses Bar (Red) - Clickable */}
           <g>
             <rect
               x={padding.left + startX}
@@ -173,15 +174,30 @@ export function SalesVsExpensesBarChart({ data, loading }: Props) {
               fill="#ef4444"
               opacity="0.9"
               rx="4"
-              className="hover:opacity-100 transition-opacity cursor-pointer"
+              className={`transition-all ${onExpensesClick ? 'hover:opacity-100 hover:brightness-110' : ''}`}
               style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))' }}
             >
               <title>
                 Total Expenses
                 {'\n'}₹{totalExpenses.toLocaleString()}
                 {'\n'}Petty Cash + Raw Materials
+                {onExpensesClick ? '\n\nClick to view details' : ''}
               </title>
             </rect>
+            
+            {/* Clickable overlay */}
+            {onExpensesClick && (
+              <rect
+                x={padding.left + startX}
+                y={padding.top + innerHeight - (totalExpenses * yScale)}
+                width={barWidth}
+                height={Math.max(totalExpenses * yScale, 2)}
+                fill="transparent"
+                onClick={onExpensesClick}
+                className="cursor-pointer"
+                style={{ pointerEvents: 'all' }}
+              />
+            )}
             
             {/* Value label on bar */}
             <text

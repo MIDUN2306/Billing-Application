@@ -8,6 +8,7 @@ import { SalesVsExpensesBarChart } from '../../components/charts/SalesVsExpenses
 import { PaymentMethodsPieChart } from '../../components/charts/PaymentMethodsPieChart';
 import { DailySalesExpensesComboChart } from '../../components/charts/DailySalesExpensesComboChart';
 import { PaymentMethodDetailsModal } from '../dashboard/PaymentMethodDetailsModal';
+import { ExpensesDetailsModal } from '../dashboard/ExpensesDetailsModal';
 import { EnhancedDateFilter } from '../../components/EnhancedDateFilter';
 import { 
   EnhancedDateFilter as EnhancedDateFilterType,
@@ -38,6 +39,7 @@ export function SalesAnalyticsPage() {
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
   const [paymentData, setPaymentData] = useState<PaymentData[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
+  const [showExpensesModal, setShowExpensesModal] = useState(false);
 
   const loadAnalyticsData = useCallback(async (isRefresh = false) => {
     if (!currentStore) return;
@@ -212,6 +214,10 @@ export function SalesAnalyticsPage() {
     setSelectedPaymentMethod(paymentMethod);
   };
 
+  const handleExpensesClick = () => {
+    setShowExpensesModal(true);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
@@ -268,7 +274,11 @@ export function SalesAnalyticsPage() {
       ) : (
         <>
           {/* Graph 1: Profit & Loss Overview (Sales vs Expenses) */}
-          <SalesVsExpensesBarChart data={dailyData} loading={false} />
+          <SalesVsExpensesBarChart 
+            data={dailyData} 
+            loading={false}
+            onExpensesClick={handleExpensesClick}
+          />
 
           {/* Graph 2: Payment Methods Distribution */}
           <PaymentMethodsPieChart 
@@ -293,6 +303,15 @@ export function SalesAnalyticsPage() {
           onClose={() => setSelectedPaymentMethod(null)}
         />
       )}
+
+      {/* Expenses Details Modal */}
+      <ExpensesDetailsModal
+        isOpen={showExpensesModal}
+        onClose={() => setShowExpensesModal(false)}
+        startDate={dateFilter.startDate}
+        endDate={dateFilter.endDate}
+        filterLabel={dateFilter.label}
+      />
     </div>
   );
 }
