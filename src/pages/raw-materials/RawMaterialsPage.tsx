@@ -43,7 +43,7 @@ interface GroupedPurchaseLog {
 type TabType = 'stock' | 'logs';
 
 export function RawMaterialsPage() {
-  const { currentStore } = useStoreStore();
+  const { currentStore, hydrated } = useStoreStore();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState<TabType>('stock');
   const [stocks, setStocks] = useState<RawMaterialStock[]>([]);
@@ -204,16 +204,20 @@ export function RawMaterialsPage() {
   // Load data when component mounts or when navigating back to this page
   useEffect(() => {
     isMountedRef.current = true;
-    loadingRef.current = false;
     
-    if (currentStore?.id) {
+    // Wait for store to be hydrated before loading
+    if (hydrated && currentStore?.id) {
+      // CRITICAL: Reset loadingRef RIGHT BEFORE loading
+      // This ensures it's reset even if the effect runs multiple times
+      loadingRef.current = false;
+      console.log('[RawMaterials] Store hydrated, loading data for store:', currentStore.id);
       if (activeTab === 'stock') {
         loadStocks();
       } else {
         loadPurchaseLogs();
       }
-    } else {
-      // If store is not available yet, set loading to false to prevent infinite loading screen
+    } else if (hydrated && !currentStore?.id) {
+      console.log('[RawMaterials] Store hydrated but no currentStore available');
       setLoading(false);
     }
 
@@ -221,7 +225,7 @@ export function RawMaterialsPage() {
       isMountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStore?.id, activeTab, location.pathname]);
+  }, [hydrated, currentStore?.id, activeTab, location.pathname]);
 
   // Reload data when window/tab becomes visible again
   useEffect(() => {

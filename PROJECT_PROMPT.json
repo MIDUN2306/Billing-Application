@@ -1,0 +1,1491 @@
+{
+  "project": {
+    "name": "Complete POS System with Multi-Tenancy",
+    "description": "Full-featured Point of Sale system with inventory, billing QR codes, petty cash, and analytics dashboard",
+    "version": "1.0.0",
+    "type": "Full Stack Web Application"
+  },
+  "technology_stack": {
+    "frontend": {
+      "framework": "React 18",
+      "build_tool": "Vite",
+      "language": "TypeScript",
+      "styling": "Tailwind CSS v3",
+      "state_management": "Zustand",
+      "routing": "React Router v6",
+      "charts": "Recharts",
+      "icons": "Lucide React",
+      "qr_codes": "qrcode.react",
+      "pdf_generation": "jsPDF"
+    },
+    "backend": {
+      "platform": "Supabase",
+      "database": "PostgreSQL",
+      "authentication": "Supabase Auth (JWT)",
+      "storage": "Supabase Storage",
+      "realtime": "Supabase Realtime",
+      "functions": "PostgreSQL RPC Functions"
+    },
+    "deployment": {
+      "hosting": "Vercel",
+      "cdn": "Vercel Edge Network",
+      "ssl": "Automatic HTTPS"
+    }
+  },
+  "theme": {
+    "name": "Burgundy Professional",
+    "colors": {
+      "primary": "#800020",
+      "primary_light": "#A0153E",
+      "primary_dark": "#5D0E1F",
+      "accent": "#D4AF37",
+      "background": "#F8F5F2",
+      "text_dark": "#2D1B1B",
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6"
+    },
+    "typography": {
+      "font_family": "Inter, system-ui, sans-serif",
+      "heading_weight": "700",
+      "body_weight": "400"
+    }
+  },
+  "architecture": {
+    "pattern": "Multi-Tenant SaaS",
+    "tenant_isolation": "Row Level Security (RLS)",
+    "authentication": "JWT-based with role-based access control",
+    "data_flow": "Client -> Supabase Client -> PostgreSQL with RLS -> Response"
+  }
+,
+  "database_schema": {
+    "core_tables": {
+      "stores": {
+        "description": "Main tenant table - each store is a separate tenant",
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "name": "text NOT NULL",
+          "address": "text",
+          "phone": "text",
+          "email": "text",
+          "gstin": "text",
+          "logo_url": "text",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()"
+        },
+        "indexes": ["name", "is_active"],
+        "rls_enabled": true
+      },
+      "roles": {
+        "description": "Role definitions for RBAC",
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "name": "text UNIQUE NOT NULL",
+          "description": "text",
+          "permissions": "jsonb DEFAULT '{}'::jsonb",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "default_roles": [
+          {
+            "name": "admin",
+            "description": "Full system access across all stores",
+            "permissions": {
+              "can_manage_stores": true,
+              "can_manage_users": true,
+              "can_view_all_data": true,
+              "can_manage_settings": true
+            }
+          },
+          {
+            "name": "manager",
+            "description": "Full access to assigned store",
+            "permissions": {
+              "can_manage_products": true,
+              "can_manage_inventory": true,
+              "can_view_reports": true,
+              "can_manage_expenses": true,
+              "can_process_sales": true
+            }
+          },
+          {
+            "name": "staff",
+            "description": "Limited access - mainly POS operations",
+            "permissions": {
+              "can_process_sales": true,
+              "can_view_products": true,
+              "can_view_customers": true
+            }
+          }
+        ],
+        "rls_enabled": true
+      },
+      "users": {
+        "description": "Extended user profile linked to auth.users",
+        "columns": {
+          "id": "uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE SET NULL",
+          "role_id": "uuid REFERENCES roles(id) NOT NULL",
+          "full_name": "text NOT NULL",
+          "phone": "text",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()",
+          "created_by": "uuid REFERENCES users(id)"
+        },
+        "indexes": ["store_id", "role_id", "is_active"],
+        "rls_enabled": true
+      }
+    },
+    "product_tables": {
+      "categories": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "name": "text NOT NULL",
+          "description": "text",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()",
+          "created_by": "uuid REFERENCES users(id)"
+        },
+        "indexes": ["store_id", "name"],
+        "rls_enabled": true
+      },
+      "products": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "category_id": "uuid REFERENCES categories(id) ON DELETE SET NULL",
+          "name": "text NOT NULL",
+          "sku": "text NOT NULL",
+          "description": "text",
+          "price": "decimal(10,2) NOT NULL",
+          "cost_price": "decimal(10,2)",
+          "stock_quantity": "decimal(10,3) DEFAULT 0",
+          "unit": "text DEFAULT 'piece'",
+          "min_stock_level": "decimal(10,3) DEFAULT 0",
+          "is_active": "boolean DEFAULT true",
+          "has_variants": "boolean DEFAULT false",
+          "image_url": "text",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()",
+          "created_by": "uuid REFERENCES users(id)"
+        },
+        "constraints": ["UNIQUE(store_id, sku)"],
+        "indexes": ["store_id", "category_id", "sku", "is_active"],
+        "rls_enabled": true
+      },
+      "product_variants": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "product_id": "uuid REFERENCES products(id) ON DELETE CASCADE NOT NULL",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "variant_name": "text NOT NULL",
+          "sku": "text NOT NULL",
+          "price": "decimal(10,2) NOT NULL",
+          "stock_quantity": "decimal(10,3) DEFAULT 0",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "constraints": ["UNIQUE(store_id, sku)"],
+        "indexes": ["product_id", "store_id"],
+        "rls_enabled": true
+      }
+    }
+,
+    "inventory_tables": {
+      "raw_materials": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "name": "text NOT NULL",
+          "sku": "text NOT NULL",
+          "unit": "text NOT NULL",
+          "current_stock": "decimal(10,3) DEFAULT 0",
+          "min_stock_level": "decimal(10,3) DEFAULT 0",
+          "cost_per_unit": "decimal(10,2)",
+          "supplier_name": "text",
+          "supplier_contact": "text",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()"
+        },
+        "constraints": ["UNIQUE(store_id, sku)"],
+        "indexes": ["store_id", "is_active"],
+        "rls_enabled": true
+      },
+      "raw_material_purchases": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "raw_material_id": "uuid REFERENCES raw_materials(id) ON DELETE CASCADE NOT NULL",
+          "quantity": "decimal(10,3) NOT NULL",
+          "unit_price": "decimal(10,2) NOT NULL",
+          "total_amount": "decimal(10,2) NOT NULL",
+          "supplier_name": "text",
+          "invoice_number": "text",
+          "purchase_date": "date NOT NULL",
+          "notes": "text",
+          "created_at": "timestamptz DEFAULT now()",
+          "created_by": "uuid REFERENCES users(id)"
+        },
+        "indexes": ["store_id", "raw_material_id", "purchase_date"],
+        "rls_enabled": true
+      },
+      "stock_adjustments": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "item_type": "text NOT NULL CHECK (item_type IN ('product', 'raw_material'))",
+          "item_id": "uuid NOT NULL",
+          "adjustment_type": "text NOT NULL CHECK (adjustment_type IN ('add', 'remove', 'expire', 'damage', 'return'))",
+          "quantity": "decimal(10,3) NOT NULL",
+          "reason": "text",
+          "notes": "text",
+          "adjusted_at": "timestamptz DEFAULT now()",
+          "adjusted_by": "uuid REFERENCES users(id)"
+        },
+        "indexes": ["store_id", "item_type", "item_id", "adjusted_at"],
+        "rls_enabled": true
+      }
+    },
+    "sales_tables": {
+      "customers": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "name": "text NOT NULL",
+          "phone": "text",
+          "email": "text",
+          "address": "text",
+          "loyalty_points": "integer DEFAULT 0",
+          "total_purchases": "decimal(10,2) DEFAULT 0",
+          "created_at": "timestamptz DEFAULT now()",
+          "updated_at": "timestamptz DEFAULT now()"
+        },
+        "constraints": ["UNIQUE(store_id, phone)"],
+        "indexes": ["store_id", "phone", "name"],
+        "rls_enabled": true
+      },
+      "sales": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "sale_number": "text NOT NULL",
+          "customer_id": "uuid REFERENCES customers(id) ON DELETE SET NULL",
+          "subtotal": "decimal(10,2) NOT NULL",
+          "tax_amount": "decimal(10,2) DEFAULT 0",
+          "discount_amount": "decimal(10,2) DEFAULT 0",
+          "total_amount": "decimal(10,2) NOT NULL",
+          "payment_status": "text DEFAULT 'paid' CHECK (payment_status IN ('paid', 'partial', 'pending'))",
+          "sale_date": "timestamptz NOT NULL DEFAULT now()",
+          "notes": "text",
+          "created_by": "uuid REFERENCES users(id)",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "constraints": ["UNIQUE(store_id, sale_number)"],
+        "indexes": ["store_id", "sale_date", "payment_status", "customer_id"],
+        "rls_enabled": true
+      },
+      "sale_items": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "sale_id": "uuid REFERENCES sales(id) ON DELETE CASCADE NOT NULL",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "product_id": "uuid REFERENCES products(id) ON DELETE SET NULL",
+          "variant_id": "uuid REFERENCES product_variants(id) ON DELETE SET NULL",
+          "product_name": "text NOT NULL",
+          "quantity": "decimal(10,3) NOT NULL",
+          "unit_price": "decimal(10,2) NOT NULL",
+          "discount": "decimal(10,2) DEFAULT 0",
+          "tax_rate": "decimal(5,2) DEFAULT 0",
+          "total": "decimal(10,2) NOT NULL"
+        },
+        "indexes": ["sale_id", "store_id", "product_id"],
+        "rls_enabled": true
+      },
+      "payments": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "sale_id": "uuid REFERENCES sales(id) ON DELETE CASCADE NOT NULL",
+          "payment_method": "text NOT NULL CHECK (payment_method IN ('cash', 'card', 'upi', 'wallet', 'bank_transfer'))",
+          "amount": "decimal(10,2) NOT NULL",
+          "reference_number": "text",
+          "payment_date": "timestamptz NOT NULL DEFAULT now()",
+          "notes": "text",
+          "created_by": "uuid REFERENCES users(id)"
+        },
+        "indexes": ["store_id", "sale_id", "payment_date", "payment_method"],
+        "rls_enabled": true
+      }
+    }
+,
+    "financial_tables": {
+      "petty_cash_accounts": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "account_name": "text NOT NULL",
+          "current_balance": "decimal(10,2) DEFAULT 0",
+          "opening_balance": "decimal(10,2) NOT NULL",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "indexes": ["store_id", "is_active"],
+        "rls_enabled": true
+      },
+      "petty_cash_transactions": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "account_id": "uuid REFERENCES petty_cash_accounts(id) ON DELETE CASCADE NOT NULL",
+          "transaction_type": "text NOT NULL CHECK (transaction_type IN ('deposit', 'withdrawal', 'expense'))",
+          "amount": "decimal(10,2) NOT NULL",
+          "category": "text",
+          "description": "text NOT NULL",
+          "reference_number": "text",
+          "transaction_date": "date NOT NULL",
+          "created_by": "uuid REFERENCES users(id)",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "indexes": ["store_id", "account_id", "transaction_date", "transaction_type"],
+        "rls_enabled": true
+      },
+      "expense_categories": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "name": "text NOT NULL",
+          "description": "text",
+          "is_active": "boolean DEFAULT true",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "indexes": ["store_id", "is_active"],
+        "rls_enabled": true
+      },
+      "expenses": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "category_id": "uuid REFERENCES expense_categories(id) ON DELETE SET NULL",
+          "expense_number": "text NOT NULL",
+          "description": "text NOT NULL",
+          "amount": "decimal(10,2) NOT NULL",
+          "payment_method": "text",
+          "vendor_name": "text",
+          "invoice_number": "text",
+          "expense_date": "date NOT NULL",
+          "notes": "text",
+          "created_by": "uuid REFERENCES users(id)",
+          "created_at": "timestamptz DEFAULT now()"
+        },
+        "constraints": ["UNIQUE(store_id, expense_number)"],
+        "indexes": ["store_id", "category_id", "expense_date"],
+        "rls_enabled": true
+      }
+    },
+    "billing_tables": {
+      "bills": {
+        "columns": {
+          "id": "uuid PRIMARY KEY DEFAULT gen_random_uuid()",
+          "store_id": "uuid REFERENCES stores(id) ON DELETE CASCADE NOT NULL",
+          "sale_id": "uuid REFERENCES sales(id) ON DELETE CASCADE NOT NULL",
+          "bill_number": "text NOT NULL",
+          "bill_data": "jsonb NOT NULL",
+          "qr_code_data": "text NOT NULL",
+          "generated_at": "timestamptz DEFAULT now()"
+        },
+        "constraints": ["UNIQUE(store_id, bill_number)"],
+        "indexes": ["store_id", "sale_id", "bill_number"],
+        "rls_enabled": false,
+        "note": "Public access for QR code scanning"
+      }
+    }
+  }
+,
+  "rls_policies": {
+    "admin_full_access": {
+      "description": "Admins can access all data across all stores",
+      "applies_to": "all_tables",
+      "policy": "CREATE POLICY admin_all_access ON {table_name} FOR ALL TO authenticated USING (EXISTS (SELECT 1 FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = auth.uid() AND r.name = 'admin'));"
+    },
+    "manager_store_access": {
+      "description": "Managers can access their assigned store data",
+      "applies_to": "all_tables_with_store_id",
+      "policy": "CREATE POLICY manager_store_access ON {table_name} FOR ALL TO authenticated USING (store_id IN (SELECT store_id FROM users WHERE id = auth.uid() AND EXISTS (SELECT 1 FROM roles r WHERE r.id = users.role_id AND r.name IN ('manager', 'admin'))));"
+    },
+    "staff_read_access": {
+      "description": "Staff can read their store data",
+      "applies_to": "all_tables_with_store_id",
+      "policy": "CREATE POLICY staff_read_access ON {table_name} FOR SELECT TO authenticated USING (store_id = (SELECT store_id FROM users WHERE id = auth.uid()));"
+    },
+    "staff_pos_write": {
+      "description": "Staff can create sales and related records",
+      "applies_to": ["sales", "sale_items", "payments"],
+      "policy": "CREATE POLICY staff_pos_write ON {table_name} FOR INSERT TO authenticated WITH CHECK (store_id = (SELECT store_id FROM users WHERE id = auth.uid()));"
+    },
+    "public_bill_access": {
+      "description": "Anyone can view bills via QR code",
+      "applies_to": ["bills"],
+      "policy": "CREATE POLICY public_bill_read ON bills FOR SELECT TO anon, authenticated USING (true);"
+    }
+  },
+  "rpc_functions": {
+    "get_dashboard_stats": {
+      "description": "Get comprehensive dashboard statistics",
+      "parameters": ["p_store_id UUID", "p_start_date DATE", "p_end_date DATE"],
+      "returns": "JSON",
+      "security": "SECURITY DEFINER",
+      "returns_structure": {
+        "total_sales": "decimal",
+        "total_expenses": "decimal",
+        "net_profit": "decimal",
+        "total_orders": "integer",
+        "average_order_value": "decimal",
+        "top_selling_products": "array",
+        "low_stock_items": "array",
+        "pending_payments": "decimal",
+        "petty_cash_balance": "decimal"
+      }
+    },
+    "process_sale": {
+      "description": "Process a complete sale with stock deduction and payment",
+      "parameters": ["p_sale_data JSON"],
+      "returns": "JSON",
+      "security": "SECURITY DEFINER",
+      "logic": [
+        "1. Validate stock availability",
+        "2. Create sale record",
+        "3. Create sale items",
+        "4. Deduct stock from products",
+        "5. Create payment records",
+        "6. Generate bill with QR code",
+        "7. Return sale_id and bill_id"
+      ]
+    },
+    "get_sales_trend": {
+      "description": "Get sales trend data for charts",
+      "parameters": ["p_store_id UUID", "p_period TEXT", "p_start_date DATE", "p_end_date DATE"],
+      "returns": "TABLE(date DATE, sales DECIMAL, expenses DECIMAL, profit DECIMAL)",
+      "security": "SECURITY DEFINER"
+    },
+    "get_low_stock_items": {
+      "description": "Get products and raw materials below minimum stock level",
+      "parameters": ["p_store_id UUID"],
+      "returns": "TABLE(item_type TEXT, item_id UUID, item_name TEXT, current_stock DECIMAL, min_stock DECIMAL)",
+      "security": "SECURITY DEFINER"
+    },
+    "get_payment_breakdown": {
+      "description": "Get payment methods breakdown for pie chart",
+      "parameters": ["p_store_id UUID", "p_start_date DATE", "p_end_date DATE"],
+      "returns": "TABLE(payment_method TEXT, total_amount DECIMAL, transaction_count INTEGER)",
+      "security": "SECURITY DEFINER"
+    },
+    "create_user_with_role": {
+      "description": "Create a new user with role assignment (admin only)",
+      "parameters": ["p_email TEXT", "p_password TEXT", "p_full_name TEXT", "p_store_id UUID", "p_role_id UUID"],
+      "returns": "JSON",
+      "security": "SECURITY DEFINER",
+      "logic": [
+        "1. Check if caller is admin",
+        "2. Create auth.users record",
+        "3. Create users profile record",
+        "4. Return user_id and success status"
+      ]
+    },
+    "transfer_user_store": {
+      "description": "Transfer user to another store (admin only)",
+      "parameters": ["p_user_id UUID", "p_new_store_id UUID"],
+      "returns": "BOOLEAN",
+      "security": "SECURITY DEFINER"
+    },
+    "get_profit_loss_report": {
+      "description": "Generate profit and loss report",
+      "parameters": ["p_store_id UUID", "p_start_date DATE", "p_end_date DATE"],
+      "returns": "JSON",
+      "security": "SECURITY DEFINER",
+      "returns_structure": {
+        "revenue": {
+          "total_sales": "decimal",
+          "returns": "decimal",
+          "net_revenue": "decimal"
+        },
+        "costs": {
+          "raw_materials": "decimal",
+          "product_costs": "decimal",
+          "total_cogs": "decimal"
+        },
+        "expenses": {
+          "by_category": "array",
+          "total_expenses": "decimal"
+        },
+        "profit": {
+          "gross_profit": "decimal",
+          "net_profit": "decimal",
+          "profit_margin": "decimal"
+        }
+      }
+    },
+    "generate_sale_number": {
+      "description": "Generate unique sale number for store",
+      "parameters": ["p_store_id UUID"],
+      "returns": "TEXT",
+      "security": "SECURITY DEFINER",
+      "format": "SALE-{YYYYMMDD}-{SEQUENCE}"
+    }
+  }
+,
+  "features": {
+    "authentication": {
+      "login_page": {
+        "fields": ["email", "password"],
+        "features": ["remember_me", "forgot_password", "store_selection"],
+        "validation": "Email format, password min 8 chars",
+        "redirect": "Dashboard after successful login"
+      },
+      "session_management": {
+        "token_type": "JWT",
+        "expiry": "24 hours",
+        "refresh": "Automatic on activity",
+        "logout": "Clear session and redirect to login"
+      }
+    },
+    "pos_system": {
+      "layout": {
+        "left_panel": "Product grid with search and category filter",
+        "right_panel": "Shopping cart with item list and totals",
+        "bottom_bar": "Action buttons (Clear, Hold, Pay)"
+      },
+      "product_selection": {
+        "search": "Real-time search by name or SKU",
+        "category_filter": "Filter by category",
+        "quick_access": "Favorite products",
+        "barcode_scan": "Support for barcode scanner input"
+      },
+      "cart_management": {
+        "add_item": "Click product to add",
+        "quantity_adjust": "Plus/minus buttons or direct input",
+        "remove_item": "Remove button with confirmation",
+        "discount": "Per-item or cart-level discount",
+        "notes": "Add notes to items"
+      },
+      "payment_processing": {
+        "methods": ["cash", "card", "upi", "wallet", "bank_transfer"],
+        "split_payment": "Multiple payment methods for one sale",
+        "change_calculation": "Automatic for cash payments",
+        "validation": "Stock availability check before processing"
+      },
+      "receipt_generation": {
+        "format": "Thermal printer (80mm)",
+        "includes": ["store_info", "items", "totals", "payment_details", "qr_code"],
+        "actions": ["print", "download_pdf", "email"]
+      }
+    },
+    "qr_billing_system": {
+      "qr_generation": {
+        "trigger": "After successful sale",
+        "content": "Unique URL to bill viewer page",
+        "format": "https://yourdomain.com/bill/{bill_id}",
+        "display": "On receipt and payment modal"
+      },
+      "bill_viewer": {
+        "access": "Public (no authentication required)",
+        "url_pattern": "/bill/:billId",
+        "displays": [
+          "Store information with logo",
+          "Bill number and date",
+          "Customer details (if available)",
+          "Itemized list with quantities and prices",
+          "Subtotal, tax, discount breakdown",
+          "Total amount",
+          "Payment method(s)",
+          "GST details (if applicable)"
+        ],
+        "actions": ["download_pdf", "print", "share"],
+        "responsive": "Mobile-optimized layout"
+      }
+    },
+    "inventory_management": {
+      "products": {
+        "add_edit": "Form with all product details",
+        "variants": "Support for size/flavor variations",
+        "stock_tracking": "Real-time stock levels",
+        "low_stock_alerts": "Notifications when below minimum",
+        "bulk_import": "CSV import for multiple products"
+      },
+      "raw_materials": {
+        "management": "Similar to products",
+        "purchase_recording": "Track purchases with supplier info",
+        "stock_adjustments": "Manual adjustments with reasons",
+        "usage_tracking": "Link to product recipes (optional)"
+      },
+      "stock_operations": {
+        "add_stock": "Increase stock with purchase details",
+        "remove_stock": "Decrease for damage/expiry/etc",
+        "transfer": "Between locations (if multi-location)",
+        "audit": "Complete audit trail of all changes"
+      }
+    },
+    "petty_cash": {
+      "accounts": {
+        "multiple": "Support multiple petty cash accounts",
+        "opening_balance": "Set initial balance",
+        "current_balance": "Real-time balance display"
+      },
+      "transactions": {
+        "types": ["deposit", "withdrawal", "expense"],
+        "categories": "Categorize expenses",
+        "recording": "Date, amount, description, reference",
+        "approval": "Optional approval workflow"
+      },
+      "reporting": {
+        "balance_summary": "Current balance of all accounts",
+        "transaction_history": "Filterable list",
+        "expense_breakdown": "By category",
+        "export": "Excel/PDF export"
+      }
+    },
+    "expenses_management": {
+      "categories": {
+        "predefined": ["utilities", "rent", "salaries", "supplies", "maintenance", "marketing"],
+        "custom": "Add custom categories"
+      },
+      "recording": {
+        "fields": ["category", "amount", "vendor", "invoice_number", "date", "payment_method", "notes"],
+        "attachments": "Upload invoice images/PDFs",
+        "recurring": "Set up recurring expenses"
+      },
+      "tracking": {
+        "monthly_summary": "Total expenses by month",
+        "category_breakdown": "Pie chart of expenses",
+        "vendor_tracking": "Expenses by vendor",
+        "budget_alerts": "Notify when exceeding budget"
+      }
+    }
+,
+    "dashboard": {
+      "summary_cards": [
+        {
+          "title": "Today's Sales",
+          "value": "Total sales amount for today",
+          "icon": "TrendingUp",
+          "color": "burgundy",
+          "comparison": "vs yesterday"
+        },
+        {
+          "title": "Total Expenses",
+          "value": "Total expenses for selected period",
+          "icon": "TrendingDown",
+          "color": "red"
+        },
+        {
+          "title": "Net Profit",
+          "value": "Sales - Expenses",
+          "icon": "DollarSign",
+          "color": "green"
+        },
+        {
+          "title": "Orders",
+          "value": "Number of sales",
+          "icon": "ShoppingCart",
+          "color": "blue"
+        },
+        {
+          "title": "Petty Cash",
+          "value": "Current petty cash balance",
+          "icon": "Wallet",
+          "color": "gold"
+        },
+        {
+          "title": "Low Stock",
+          "value": "Number of low stock items",
+          "icon": "AlertTriangle",
+          "color": "orange"
+        }
+      ],
+      "charts": [
+        {
+          "type": "line",
+          "title": "Sales vs Expenses Trend",
+          "data": "Daily/Weekly/Monthly sales and expenses",
+          "x_axis": "Date",
+          "y_axis": "Amount",
+          "lines": ["Sales", "Expenses", "Profit"]
+        },
+        {
+          "type": "pie",
+          "title": "Payment Methods",
+          "data": "Breakdown by payment method",
+          "shows": "Percentage and amount"
+        },
+        {
+          "type": "bar",
+          "title": "Top Selling Products",
+          "data": "Top 10 products by quantity/revenue",
+          "x_axis": "Product",
+          "y_axis": "Quantity/Revenue"
+        },
+        {
+          "type": "donut",
+          "title": "Sales by Category",
+          "data": "Category-wise sales distribution"
+        }
+      ],
+      "date_filters": [
+        "Today",
+        "Yesterday",
+        "Last 7 Days",
+        "Last 30 Days",
+        "This Month",
+        "Last Month",
+        "Custom Range"
+      ],
+      "recent_transactions": {
+        "sales": "Last 10 sales with amount and time",
+        "expenses": "Last 10 expenses",
+        "low_stock": "Items below minimum level"
+      },
+      "quick_actions": [
+        "New Sale (Navigate to POS)",
+        "Add Product",
+        "Record Expense",
+        "Add Stock",
+        "View Reports"
+      ]
+    },
+    "admin_panel": {
+      "stores_management": {
+        "list": "All stores with status",
+        "create": "Add new store with details",
+        "edit": "Update store information",
+        "activate_deactivate": "Toggle store status",
+        "settings": "Store-specific settings"
+      },
+      "users_management": {
+        "list": "All users with role and store",
+        "create": "Create user with email/password",
+        "edit": "Update user details",
+        "assign_role": "Change user role",
+        "assign_store": "Transfer to different store",
+        "reset_password": "Send reset link",
+        "activate_deactivate": "Toggle user status"
+      },
+      "roles_permissions": {
+        "view_roles": "List all roles",
+        "edit_permissions": "Modify role permissions",
+        "create_role": "Add custom role",
+        "permission_matrix": "Visual permission grid"
+      },
+      "system_settings": {
+        "tax_rates": "Configure tax rates",
+        "currency": "Set currency and format",
+        "receipt_template": "Customize receipt layout",
+        "email_settings": "SMTP configuration",
+        "backup": "Database backup/restore"
+      }
+    },
+    "reports": {
+      "sales_reports": [
+        "Daily Sales Summary",
+        "Product-wise Sales",
+        "Category-wise Sales",
+        "Customer-wise Sales",
+        "Payment Method Breakdown",
+        "Hourly Sales Pattern"
+      ],
+      "inventory_reports": [
+        "Current Stock Levels",
+        "Stock Movement",
+        "Low Stock Report",
+        "Stock Valuation",
+        "Expiration Report"
+      ],
+      "financial_reports": [
+        "Profit & Loss Statement",
+        "Expense Breakdown",
+        "Petty Cash Report",
+        "Tax Summary",
+        "Cash Flow Statement"
+      ],
+      "export_formats": ["PDF", "Excel", "CSV"],
+      "scheduling": "Schedule automatic report generation"
+    }
+  }
+,
+  "ui_components": {
+    "layout": {
+      "AppLayout": {
+        "structure": "Header + Sidebar + Main Content",
+        "responsive": "Collapsible sidebar on mobile",
+        "theme": "Burgundy with gold accents"
+      },
+      "Header": {
+        "left": "Logo and store name",
+        "center": "Page title",
+        "right": "User menu with logout"
+      },
+      "Sidebar": {
+        "sections": [
+          {
+            "title": "Main",
+            "items": ["Dashboard", "POS"]
+          },
+          {
+            "title": "Inventory",
+            "items": ["Products", "Categories", "Raw Materials", "Stock Adjustments"]
+          },
+          {
+            "title": "Sales",
+            "items": ["Sales History", "Customers"]
+          },
+          {
+            "title": "Financial",
+            "items": ["Expenses", "Petty Cash"]
+          },
+          {
+            "title": "Reports",
+            "items": ["Reports"]
+          },
+          {
+            "title": "Admin",
+            "items": ["Admin Panel"],
+            "visible_to": ["admin"]
+          }
+        ]
+      }
+    },
+    "forms": {
+      "FormInput": {
+        "props": ["label", "type", "value", "onChange", "error", "required", "placeholder"],
+        "styling": "Burgundy focus ring, rounded corners"
+      },
+      "FormSelect": {
+        "props": ["label", "options", "value", "onChange", "error", "required"],
+        "features": "Searchable dropdown for long lists"
+      },
+      "DatePicker": {
+        "library": "react-datepicker",
+        "styling": "Burgundy theme",
+        "features": "Date range selection"
+      },
+      "ImageUpload": {
+        "accepts": "image/*",
+        "preview": "Show thumbnail",
+        "upload_to": "Supabase Storage"
+      }
+    },
+    "ui_elements": {
+      "Button": {
+        "variants": ["primary", "secondary", "danger", "ghost"],
+        "sizes": ["sm", "md", "lg"],
+        "primary_color": "burgundy-800",
+        "hover": "burgundy-900"
+      },
+      "Card": {
+        "styling": "White background, subtle shadow, rounded corners",
+        "padding": "p-6",
+        "hover": "Slight elevation increase"
+      },
+      "Modal": {
+        "backdrop": "Semi-transparent dark",
+        "animation": "Fade in and scale",
+        "close": "X button and click outside",
+        "sizes": ["sm", "md", "lg", "xl"]
+      },
+      "Table": {
+        "features": ["sorting", "pagination", "search", "row_actions"],
+        "styling": "Striped rows, burgundy header",
+        "responsive": "Horizontal scroll on mobile"
+      },
+      "Badge": {
+        "variants": ["success", "warning", "danger", "info", "default"],
+        "use_cases": "Status indicators, counts"
+      },
+      "Alert": {
+        "types": ["success", "error", "warning", "info"],
+        "dismissible": true,
+        "auto_dismiss": "Optional timeout"
+      }
+    },
+    "charts": {
+      "library": "Recharts",
+      "colors": {
+        "primary": "#800020",
+        "secondary": "#D4AF37",
+        "success": "#10B981",
+        "danger": "#EF4444",
+        "info": "#3B82F6"
+      },
+      "responsive": true,
+      "animations": true,
+      "tooltips": "Custom styled"
+    }
+  },
+  "state_management": {
+    "zustand_stores": {
+      "authStore": {
+        "state": ["user", "session", "loading", "store"],
+        "actions": ["login", "logout", "refreshSession", "setStore"]
+      },
+      "storeStore": {
+        "state": ["currentStore", "stores"],
+        "actions": ["setCurrentStore", "fetchStores"]
+      },
+      "cartStore": {
+        "state": ["items", "customer", "discount", "notes"],
+        "actions": ["addItem", "removeItem", "updateQuantity", "clearCart", "setCustomer"]
+      },
+      "productsStore": {
+        "state": ["products", "categories", "loading"],
+        "actions": ["fetchProducts", "addProduct", "updateProduct", "deleteProduct"]
+      },
+      "dashboardStore": {
+        "state": ["stats", "dateRange", "loading"],
+        "actions": ["fetchStats", "setDateRange"]
+      }
+    },
+    "persistence": {
+      "cartStore": "localStorage",
+      "authStore": "sessionStorage",
+      "theme": "localStorage"
+    }
+  },
+  "routing": {
+    "public_routes": [
+      "/login",
+      "/bill/:billId"
+    ],
+    "protected_routes": [
+      "/dashboard",
+      "/pos",
+      "/products",
+      "/categories",
+      "/raw-materials",
+      "/customers",
+      "/sales",
+      "/expenses",
+      "/petty-cash",
+      "/inventory",
+      "/reports"
+    ],
+    "admin_routes": [
+      "/admin"
+    ],
+    "redirect_logic": {
+      "not_authenticated": "Redirect to /login",
+      "authenticated_on_login": "Redirect to /dashboard",
+      "not_authorized": "Show 403 page"
+    }
+  }
+,
+  "implementation_phases": {
+    "phase_1_foundation": {
+      "duration": "Week 1",
+      "tasks": [
+        "Setup Vite + React + TypeScript project",
+        "Install dependencies (Tailwind, Zustand, React Router, Recharts, etc)",
+        "Configure Tailwind with burgundy theme",
+        "Create Supabase project",
+        "Design and create all database tables",
+        "Implement RLS policies for all tables",
+        "Create default roles (admin, manager, staff)",
+        "Build authentication system (login, logout, session)",
+        "Create layout components (AppLayout, Header, Sidebar)",
+        "Setup routing with protected routes",
+        "Create reusable UI components (Button, Card, Modal, etc)"
+      ],
+      "deliverables": [
+        "Working authentication",
+        "Complete database schema",
+        "RLS policies active",
+        "Basic layout structure"
+      ]
+    },
+    "phase_2_core_features": {
+      "duration": "Week 2",
+      "tasks": [
+        "Categories management (CRUD)",
+        "Products management (CRUD with variants)",
+        "Raw materials management (CRUD)",
+        "Customers management (CRUD)",
+        "Stock adjustments functionality",
+        "Image upload to Supabase Storage",
+        "SKU auto-generation",
+        "Low stock alerts"
+      ],
+      "deliverables": [
+        "Complete inventory management",
+        "Customer database",
+        "Stock tracking system"
+      ]
+    },
+    "phase_3_pos_system": {
+      "duration": "Week 3",
+      "tasks": [
+        "Build POS page layout",
+        "Product grid with search and filters",
+        "Shopping cart functionality",
+        "Quantity adjustment",
+        "Customer selection",
+        "Discount application",
+        "Payment modal with multiple methods",
+        "Split payment support",
+        "Stock validation before sale",
+        "Create process_sale RPC function",
+        "Receipt generation (thermal format)",
+        "Print functionality"
+      ],
+      "deliverables": [
+        "Fully functional POS system",
+        "Receipt printing",
+        "Stock deduction on sale"
+      ]
+    },
+    "phase_4_qr_billing": {
+      "duration": "Week 4",
+      "tasks": [
+        "Create bills table",
+        "QR code generation after sale",
+        "Build public bill viewer page",
+        "Design mobile-optimized bill layout",
+        "PDF generation from bill data",
+        "Download and share functionality",
+        "Display QR on receipt",
+        "Test QR scanning flow"
+      ],
+      "deliverables": [
+        "QR code on receipts",
+        "Public bill viewer",
+        "PDF download"
+      ]
+    },
+    "phase_5_financial": {
+      "duration": "Week 5",
+      "tasks": [
+        "Petty cash accounts management",
+        "Petty cash transactions (deposit/withdrawal/expense)",
+        "Expense categories management",
+        "Expenses recording with vendor tracking",
+        "Transaction history with filters",
+        "Balance calculations",
+        "Export to Excel/PDF"
+      ],
+      "deliverables": [
+        "Petty cash system",
+        "Expense tracking",
+        "Financial reports"
+      ]
+    },
+    "phase_6_dashboard": {
+      "duration": "Week 6",
+      "tasks": [
+        "Create get_dashboard_stats RPC",
+        "Create get_sales_trend RPC",
+        "Create get_payment_breakdown RPC",
+        "Build summary cards",
+        "Implement sales vs expenses line chart",
+        "Implement payment methods pie chart",
+        "Implement top products bar chart",
+        "Implement category sales donut chart",
+        "Date filter component",
+        "Recent transactions list",
+        "Quick actions sidebar",
+        "Real-time data updates"
+      ],
+      "deliverables": [
+        "Complete dashboard",
+        "Interactive charts",
+        "Real-time statistics"
+      ]
+    },
+    "phase_7_admin_reports": {
+      "duration": "Week 7",
+      "tasks": [
+        "Admin panel layout with tabs",
+        "Stores management (CRUD)",
+        "Users management (CRUD)",
+        "Create create_user_with_role RPC",
+        "Role assignment functionality",
+        "Store transfer functionality",
+        "Password reset",
+        "Permissions editor",
+        "Sales reports generation",
+        "Inventory reports",
+        "Financial reports",
+        "Export functionality (PDF/Excel/CSV)",
+        "Report scheduling"
+      ],
+      "deliverables": [
+        "Admin panel",
+        "User management",
+        "Comprehensive reports"
+      ]
+    },
+    "phase_8_polish": {
+      "duration": "Week 8",
+      "tasks": [
+        "Responsive design testing and fixes",
+        "Mobile optimization",
+        "Error handling and validation",
+        "Loading states and skeletons",
+        "Toast notifications",
+        "Keyboard shortcuts for POS",
+        "Performance optimization",
+        "Security audit",
+        "Cross-browser testing",
+        "Documentation",
+        "User guide",
+        "Deployment to Vercel"
+      ],
+      "deliverables": [
+        "Production-ready application",
+        "Complete documentation",
+        "Deployed system"
+      ]
+    }
+  }
+,
+  "dependencies": {
+    "core": {
+      "react": "^18.2.0",
+      "react-dom": "^18.2.0",
+      "vite": "^5.0.0",
+      "typescript": "^5.3.0"
+    },
+    "routing": {
+      "react-router-dom": "^6.20.0"
+    },
+    "styling": {
+      "tailwindcss": "^3.4.0",
+      "autoprefixer": "^10.4.16",
+      "postcss": "^8.4.32"
+    },
+    "state_management": {
+      "zustand": "^4.4.7"
+    },
+    "backend": {
+      "@supabase/supabase-js": "^2.39.0"
+    },
+    "ui_components": {
+      "lucide-react": "^0.300.0",
+      "react-hot-toast": "^2.4.1",
+      "react-datepicker": "^4.25.0"
+    },
+    "charts": {
+      "recharts": "^2.10.3"
+    },
+    "utilities": {
+      "date-fns": "^3.0.0",
+      "clsx": "^2.0.0"
+    },
+    "qr_and_pdf": {
+      "qrcode.react": "^3.1.0",
+      "jspdf": "^2.5.1",
+      "html2canvas": "^1.4.1"
+    },
+    "forms": {
+      "react-hook-form": "^7.49.2",
+      "zod": "^3.22.4",
+      "@hookform/resolvers": "^3.3.3"
+    }
+  },
+  "environment_variables": {
+    "required": [
+      "VITE_SUPABASE_URL",
+      "VITE_SUPABASE_ANON_KEY"
+    ],
+    "optional": [
+      "VITE_APP_NAME",
+      "VITE_APP_URL"
+    ],
+    "example_env": {
+      "VITE_SUPABASE_URL": "https://your-project.supabase.co",
+      "VITE_SUPABASE_ANON_KEY": "your-anon-key",
+      "VITE_APP_NAME": "My POS System",
+      "VITE_APP_URL": "https://yourapp.com"
+    }
+  },
+  "security_best_practices": {
+    "authentication": [
+      "Use Supabase Auth for secure authentication",
+      "Implement session timeout (24 hours)",
+      "Refresh tokens automatically",
+      "Secure password requirements (min 8 chars, complexity)",
+      "Rate limiting on login attempts"
+    ],
+    "authorization": [
+      "RLS policies on all tables",
+      "Role-based access control",
+      "Admin-only routes protected",
+      "API calls validated server-side"
+    ],
+    "data_protection": [
+      "Sensitive data encrypted at rest",
+      "HTTPS only in production",
+      "Environment variables for secrets",
+      "No hardcoded credentials",
+      "SQL injection prevention via parameterized queries"
+    ],
+    "frontend": [
+      "Input validation and sanitization",
+      "XSS protection",
+      "CSRF tokens for state-changing operations",
+      "Content Security Policy headers"
+    ]
+  },
+  "testing_strategy": {
+    "manual_testing": [
+      "Test all user flows",
+      "Test with different roles (admin, manager, staff)",
+      "Test multi-store scenarios",
+      "Test RLS policies",
+      "Test on different devices and browsers",
+      "Test QR code scanning",
+      "Test receipt printing"
+    ],
+    "test_scenarios": [
+      {
+        "scenario": "Complete Sale Flow",
+        "steps": [
+          "Login as staff",
+          "Navigate to POS",
+          "Search and add products",
+          "Adjust quantities",
+          "Select customer",
+          "Apply discount",
+          "Process payment",
+          "Verify stock deduction",
+          "Generate receipt with QR",
+          "Scan QR and view bill"
+        ]
+      },
+      {
+        "scenario": "Multi-Store Access",
+        "steps": [
+          "Login as admin",
+          "View all stores data",
+          "Create new store",
+          "Create manager for store",
+          "Login as manager",
+          "Verify access only to assigned store",
+          "Attempt to access other store data (should fail)"
+        ]
+      },
+      {
+        "scenario": "Inventory Management",
+        "steps": [
+          "Add new product",
+          "Add stock",
+          "Process sale (stock should decrease)",
+          "Check low stock alert",
+          "Adjust stock manually",
+          "View stock history"
+        ]
+      }
+    ]
+  },
+  "deployment": {
+    "platform": "Vercel",
+    "steps": [
+      "1. Push code to GitHub repository",
+      "2. Connect Vercel to GitHub",
+      "3. Configure environment variables in Vercel",
+      "4. Deploy",
+      "5. Configure custom domain (optional)",
+      "6. Setup SSL (automatic with Vercel)"
+    ],
+    "post_deployment": [
+      "Test all features in production",
+      "Setup error monitoring (Sentry)",
+      "Configure analytics (Google Analytics)",
+      "Setup automated backups",
+      "Monitor performance",
+      "Setup uptime monitoring"
+    ]
+  },
+  "maintenance": {
+    "regular_tasks": [
+      "Database backups (daily)",
+      "Monitor error logs",
+      "Review security advisories",
+      "Update dependencies",
+      "Performance monitoring",
+      "User feedback collection"
+    ],
+    "scaling_considerations": [
+      "Database indexing optimization",
+      "Implement caching for frequently accessed data",
+      "CDN for static assets",
+      "Database connection pooling",
+      "Lazy loading for large lists",
+      "Pagination for all tables"
+    ]
+  }
+,
+  "key_features_summary": {
+    "multi_tenancy": {
+      "description": "Complete isolation between stores using RLS",
+      "implementation": "store_id in all tables, RLS policies enforce access",
+      "benefits": "Single database, multiple stores, secure data isolation"
+    },
+    "role_based_access": {
+      "roles": {
+        "admin": "Full access to all stores and system settings",
+        "manager": "Full access to assigned store",
+        "staff": "Limited access - mainly POS operations"
+      },
+      "implementation": "Roles table with permissions JSONB, RLS policies check role"
+    },
+    "pos_system": {
+      "highlights": [
+        "Fast product search",
+        "Real-time stock validation",
+        "Multiple payment methods",
+        "Split payments",
+        "Thermal receipt printing",
+        "QR code on receipt"
+      ]
+    },
+    "qr_billing": {
+      "highlights": [
+        "Unique QR for each bill",
+        "Public bill viewer (no login required)",
+        "Mobile-optimized",
+        "PDF download",
+        "Share functionality"
+      ]
+    },
+    "dashboard": {
+      "highlights": [
+        "Real-time statistics",
+        "Interactive charts",
+        "Date range filtering",
+        "Quick actions",
+        "Low stock alerts"
+      ]
+    },
+    "inventory": {
+      "highlights": [
+        "Products with variants",
+        "Raw materials tracking",
+        "Stock adjustments",
+        "Low stock alerts",
+        "Purchase history"
+      ]
+    },
+    "financial": {
+      "highlights": [
+        "Petty cash management",
+        "Expense tracking",
+        "Profit/loss reports",
+        "Payment method analytics"
+      ]
+    }
+  },
+  "getting_started": {
+    "step_1_supabase_setup": {
+      "actions": [
+        "Create new Supabase project",
+        "Copy project URL and anon key",
+        "Run database migrations (create tables)",
+        "Enable RLS on all tables",
+        "Create RLS policies",
+        "Create RPC functions",
+        "Insert default roles"
+      ]
+    },
+    "step_2_project_setup": {
+      "actions": [
+        "Clone/create project directory",
+        "Run: npm create vite@latest . -- --template react-ts",
+        "Install dependencies: npm install",
+        "Install additional packages (see dependencies)",
+        "Configure Tailwind CSS",
+        "Create .env file with Supabase credentials",
+        "Setup folder structure"
+      ]
+    },
+    "step_3_development": {
+      "actions": [
+        "Start with authentication (Phase 1)",
+        "Build core features (Phase 2)",
+        "Implement POS (Phase 3)",
+        "Add QR billing (Phase 4)",
+        "Build financial features (Phase 5)",
+        "Create dashboard (Phase 6)",
+        "Add admin panel (Phase 7)",
+        "Polish and test (Phase 8)"
+      ]
+    },
+    "step_4_deployment": {
+      "actions": [
+        "Build production bundle: npm run build",
+        "Test build locally: npm run preview",
+        "Push to GitHub",
+        "Deploy to Vercel",
+        "Configure environment variables",
+        "Test in production"
+      ]
+    }
+  },
+  "success_criteria": {
+    "functional": [
+      "Users can login with different roles",
+      "Admin can create stores and users",
+      "Manager can manage their store",
+      "Staff can process sales",
+      "POS system works smoothly",
+      "Stock deducts on sale",
+      "QR codes generate and work",
+      "Bill viewer displays correctly",
+      "Dashboard shows accurate data",
+      "Reports generate correctly",
+      "All RLS policies work"
+    ],
+    "performance": [
+      "Page load < 2 seconds",
+      "POS operations < 500ms",
+      "Dashboard loads < 3 seconds",
+      "Charts render smoothly",
+      "No memory leaks"
+    ],
+    "security": [
+      "RLS prevents unauthorized access",
+      "Passwords are hashed",
+      "Sessions expire properly",
+      "No SQL injection vulnerabilities",
+      "XSS protection active"
+    ],
+    "usability": [
+      "Intuitive navigation",
+      "Responsive on all devices",
+      "Clear error messages",
+      "Fast POS workflow",
+      "Easy product search"
+    ]
+  },
+  "notes": {
+    "important": [
+      "Multi-tenancy is the foundation - implement RLS correctly from the start",
+      "Test RLS policies thoroughly with different roles",
+      "QR bill viewer must be public (no RLS on bills table)",
+      "Use SECURITY DEFINER for RPC functions that need elevated privileges",
+      "Always validate stock before processing sales",
+      "Keep the POS interface simple and fast",
+      "Burgundy theme should be consistent throughout",
+      "Mobile responsiveness is critical for POS and bill viewer"
+    ],
+    "tips": [
+      "Use Zustand for global state management",
+      "Create reusable components early",
+      "Use TypeScript for type safety",
+      "Implement error boundaries",
+      "Add loading states everywhere",
+      "Use optimistic updates for better UX",
+      "Cache frequently accessed data",
+      "Use indexes on foreign keys"
+    ]
+  }
+}

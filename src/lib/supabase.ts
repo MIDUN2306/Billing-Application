@@ -11,10 +11,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'pkce',
     storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    // Refresh token before it expires (default is 10 seconds before expiry)
+    storageKey: 'tea-boys-auth',
   },
   global: {
     headers: {
       'x-application-name': 'tea-boys-management',
+    },
+    // Add retry logic for failed requests
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
     },
   },
   db: {

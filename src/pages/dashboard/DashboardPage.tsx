@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import { 
@@ -11,7 +11,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface SalesData {
   total_amount: number;
@@ -40,12 +40,15 @@ interface PettyCashData {
 }
 
 export function DashboardPage() {
-  const { currentStore } = useStoreStore();
-  const location = useLocation();
+  const { currentStore, hydrated } = useStoreStore();
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Refs to prevent race conditions
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
   
   // Card data states
   const [salesData, setSalesData] = useState<SalesData>({ total_amount: 0, transaction_count: 0 });
@@ -55,7 +58,17 @@ export function DashboardPage() {
   const [pettyCashData, setPettyCashData] = useState<PettyCashData>({ total_given: 0, transaction_count: 0 });
 
   const loadDashboardData = useCallback(async (isRefresh = false) => {
-    if (!currentStore) return;
+    if (!currentStore?.id) {
+      setLoading(false);
+      return;
+    }
+
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      return;
+    }
+
+    loadingRef.current = true;
 
     try {
       if (isRefresh) {
@@ -70,8 +83,7 @@ export function DashboardPage() {
       const [
         salesRes,
         inventoryRes,
-        pettyCashRes,
-        employeesRes
+        pettyCashRes
       ] = await Promise.all([
         // Sales data
         supabase
@@ -94,14 +106,13 @@ export function DashboardPage() {
           .from('petty_cash')
           .select('amount')
           .eq('store_id', currentStore.id)
-          .eq('given_date', today),
-        
-        // Employees (from store_users)
-        supabase
-          .from('store_users')
-          .select('user_id')
-          .eq('store_id', currentStore.id)
+          .eq('given_date', today)
       ]);
+
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
 
       // Process Sales Data
       if (!salesRes.error) {
@@ -137,51 +148,62 @@ export function DashboardPage() {
         });
       }
 
-      // Process Employee Data
-      if (!employeesRes.error) {
-        const employees = employeesRes.data || [];
+      // Employee data from profiles table
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('store_id', currentStore.id)
+        .eq('is_active', true);
+      
+      if (profilesData) {
         setEmployeeData({
-          total_employees: employees.length,
-          active_employees: employees.length
+          total_employees: profilesData.length,
+          active_employees: profilesData.length
         });
       }
 
-      if (isRefresh) {
+      // Only show success message if component is still mounted
+      if (isRefresh && isMountedRef.current) {
         toast.success('Dashboard refreshed');
       }
     } catch (error: any) {
       console.error('Error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      
+      // Only show error if component is still mounted
+      if (isMountedRef.current) {
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+      loadingRef.current = false;
     }
-  }, [currentStore]);
+  }, [currentStore?.id]);
 
+  // Load data when component mounts or store changes
   useEffect(() => {
-    if (currentStore) {
+    isMountedRef.current = true;
+    
+    // Wait for store to be hydrated before loading
+    if (hydrated && currentStore?.id) {
+      // CRITICAL: Reset loadingRef RIGHT BEFORE loading
+      // This ensures it's reset even if the effect runs multiple times
+      loadingRef.current = false;
+      console.log('[Dashboard] Store hydrated, loading data for store:', currentStore.id);
       loadDashboardData();
+    } else if (hydrated && !currentStore?.id) {
+      console.log('[Dashboard] Store hydrated but no currentStore available');
+      setLoading(false);
     }
-  }, [currentStore, location.pathname, loadDashboardData]);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && currentStore) {
-        loadDashboardData();
-      }
-    };
-    const handleFocus = () => {
-      if (currentStore) {
-        loadDashboardData();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      isMountedRef.current = false;
     };
-  }, [currentStore, loadDashboardData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, currentStore?.id]); // Depend on both hydrated and currentStore?.id
 
   const handleRefresh = () => {
     loadDashboardData(true);

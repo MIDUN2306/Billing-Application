@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
 import { Search, Eye, Printer, RotateCw } from 'lucide-react';
 import { SaleDetailsModal } from './SaleDetailsModal';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { useLocation } from 'react-router-dom';
 
 interface Sale {
   id: string;
@@ -20,7 +19,6 @@ interface Sale {
 
 export function SalesPage() {
   const { currentStore } = useStoreStore();
-  const location = useLocation();
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,8 +28,24 @@ export function SalesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Refs to prevent race conditions
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const loadSales = useCallback(async (isRefresh = false) => {
+    if (!currentStore?.id) {
+      setLoading(false);
+      return;
+    }
+
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      return;
+    }
+
+    loadingRef.current = true;
+
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -84,6 +98,11 @@ export function SalesPage() {
         status: sale.status,
       }));
 
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setSales(formattedSales);
       
       if (isRefresh) {
@@ -91,37 +110,39 @@ export function SalesPage() {
       }
     } catch (error: any) {
       console.error('Load sales error:', error);
-      toast.error('Failed to load sales');
+      
+      // Only show error if component is still mounted
+      if (isMountedRef.current) {
+        toast.error('Failed to load sales');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+      loadingRef.current = false;
     }
-  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo]);
+  }, [currentStore?.id, statusFilter, paymentFilter, dateFrom, dateTo]);
 
+  // Load sales when component mounts or filters change
   useEffect(() => {
-    if (currentStore) {
+    isMountedRef.current = true;
+    
+    if (currentStore?.id) {
+      // CRITICAL: Reset loadingRef RIGHT BEFORE loading
+      // This ensures it's reset even if the effect runs multiple times
+      loadingRef.current = false;
       loadSales();
+    } else {
+      setLoading(false);
     }
-  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo, location.pathname, loadSales]);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && currentStore) {
-        loadSales();
-      }
-    };
-    const handleFocus = () => {
-      if (currentStore) {
-        loadSales();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      isMountedRef.current = false;
     };
-  }, [currentStore, loadSales]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id, statusFilter, paymentFilter, dateFrom, dateTo]); // Don't include loadSales
 
   const handleRefresh = () => {
     loadSales(true);

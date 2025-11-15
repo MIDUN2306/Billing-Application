@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
@@ -6,7 +6,6 @@ import { Search, Eye, Plus, RotateCw } from 'lucide-react';
 import { PurchaseDetailsModal } from './PurchaseDetailsModal';
 import { PurchaseFormModal } from './PurchaseFormModal';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { useLocation } from 'react-router-dom';
 
 interface Purchase {
   id: string;
@@ -20,7 +19,6 @@ interface Purchase {
 
 export function PurchasesPage() {
   const { currentStore } = useStoreStore();
-  const location = useLocation();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -31,8 +29,24 @@ export function PurchasesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Refs to prevent race conditions
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const loadPurchases = useCallback(async (isRefresh = false) => {
+    if (!currentStore?.id) {
+      setLoading(false);
+      return;
+    }
+
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      return;
+    }
+
+    loadingRef.current = true;
+
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -82,6 +96,11 @@ export function PurchasesPage() {
         status: purchase.status,
       }));
 
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setPurchases(formattedPurchases);
       
       if (isRefresh) {
@@ -89,37 +108,37 @@ export function PurchasesPage() {
       }
     } catch (error: any) {
       console.error('Load purchases error:', error);
-      toast.error('Failed to load purchases');
+      
+      // Only show error if component is still mounted
+      if (isMountedRef.current) {
+        toast.error('Failed to load purchases');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+      loadingRef.current = false;
     }
-  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo]);
+  }, [currentStore?.id, statusFilter, paymentFilter, dateFrom, dateTo]);
 
+  // Load purchases when component mounts or filters change
   useEffect(() => {
-    if (currentStore) {
+    isMountedRef.current = true;
+    loadingRef.current = false;
+    
+    if (currentStore?.id) {
       loadPurchases();
+    } else {
+      setLoading(false);
     }
-  }, [currentStore, statusFilter, paymentFilter, dateFrom, dateTo, location.pathname, loadPurchases]);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && currentStore) {
-        loadPurchases();
-      }
-    };
-    const handleFocus = () => {
-      if (currentStore) {
-        loadPurchases();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      isMountedRef.current = false;
     };
-  }, [currentStore, loadPurchases]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id, statusFilter, paymentFilter, dateFrom, dateTo]); // Don't include loadPurchases
 
   const handleRefresh = () => {
     loadPurchases(true);

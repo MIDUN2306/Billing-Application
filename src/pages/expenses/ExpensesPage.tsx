@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
 import { Search, Plus, Eye, Trash2, RotateCw } from 'lucide-react';
 import { ExpenseFormModal } from './ExpenseFormModal';
 import { formatCurrency, formatDate } from '../../lib/utils';
-import { useLocation } from 'react-router-dom';
 
 interface Expense {
   id: string;
@@ -19,7 +18,6 @@ interface Expense {
 
 export function ExpensesPage() {
   const { currentStore } = useStoreStore();
-  const location = useLocation();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,8 +28,24 @@ export function ExpensesPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Refs to prevent race conditions
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const loadExpenses = useCallback(async (isRefresh = false) => {
+    if (!currentStore?.id) {
+      setLoading(false);
+      return;
+    }
+
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      return;
+    }
+
+    loadingRef.current = true;
+
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -60,6 +74,12 @@ export function ExpensesPage() {
       const { data, error } = await query;
 
       if (error) throw error;
+      
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+      
       setExpenses(data || []);
       
       if (isRefresh) {
@@ -67,37 +87,37 @@ export function ExpensesPage() {
       }
     } catch (error: any) {
       console.error('Load expenses error:', error);
-      toast.error('Failed to load expenses');
+      
+      // Only show error if component is still mounted
+      if (isMountedRef.current) {
+        toast.error('Failed to load expenses');
+      }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+      loadingRef.current = false;
     }
-  }, [currentStore, categoryFilter, paymentFilter, dateFrom, dateTo]);
+  }, [currentStore?.id, categoryFilter, paymentFilter, dateFrom, dateTo]);
 
+  // Load expenses when component mounts or filters change
   useEffect(() => {
-    if (currentStore) {
+    isMountedRef.current = true;
+    loadingRef.current = false;
+    
+    if (currentStore?.id) {
       loadExpenses();
+    } else {
+      setLoading(false);
     }
-  }, [currentStore, categoryFilter, paymentFilter, dateFrom, dateTo, location.pathname, loadExpenses]);
 
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && currentStore) {
-        loadExpenses();
-      }
-    };
-    const handleFocus = () => {
-      if (currentStore) {
-        loadExpenses();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
+      isMountedRef.current = false;
     };
-  }, [currentStore, loadExpenses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStore?.id, categoryFilter, paymentFilter, dateFrom, dateTo]); // Don't include loadExpenses
 
   const handleRefresh = () => {
     loadExpenses(true);

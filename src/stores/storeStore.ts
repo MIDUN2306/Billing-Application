@@ -18,11 +18,13 @@ interface StoreState {
   currentStore: Store | null;
   stores: Store[];
   loading: boolean;
+  hydrated: boolean;
   
   // Actions
   setCurrentStore: (store: Store) => void;
   loadStores: () => Promise<void>;
   refreshCurrentStore: () => Promise<void>;
+  setHydrated: (hydrated: boolean) => void;
 }
 
 export const useStoreStore = create<StoreState>()(
@@ -31,9 +33,14 @@ export const useStoreStore = create<StoreState>()(
       currentStore: null,
       stores: [],
       loading: false,
+      hydrated: false,
 
       setCurrentStore: (store) => {
         set({ currentStore: store });
+      },
+
+      setHydrated: (hydrated) => {
+        set({ hydrated });
       },
 
       loadStores: async () => {
@@ -84,6 +91,13 @@ export const useStoreStore = create<StoreState>()(
     {
       name: 'store-storage',
       partialize: (state) => ({ currentStore: state.currentStore }),
+      onRehydrateStorage: () => (state) => {
+        // Called when rehydration is complete
+        if (state) {
+          state.setHydrated(true);
+          console.log('[StoreStore] Rehydration complete, currentStore:', state.currentStore?.id);
+        }
+      },
     }
   )
 );

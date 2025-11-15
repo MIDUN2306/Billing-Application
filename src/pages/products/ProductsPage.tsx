@@ -28,7 +28,7 @@ interface Product {
 }
 
 export function ProductsPage() {
-  const { currentStore } = useStoreStore();
+  const { currentStore, hydrated } = useStoreStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -210,12 +210,16 @@ export function ProductsPage() {
   // Load products when component mounts
   useEffect(() => {
     isMountedRef.current = true;
-    loadingRef.current = false;
 
-    if (currentStore?.id) {
+    // Wait for store to be hydrated before loading
+    if (hydrated && currentStore?.id) {
+      // CRITICAL: Reset loadingRef RIGHT BEFORE loading
+      // This ensures it's reset even if the effect runs multiple times
+      loadingRef.current = false;
+      console.log('[Products] Store hydrated, loading products for store:', currentStore.id);
       loadProducts();
-    } else {
-      // If store is not available yet, set loading to false to prevent infinite loading screen
+    } else if (hydrated && !currentStore?.id) {
+      console.log('[Products] Store hydrated but no currentStore available');
       setLoading(false);
     }
 
@@ -223,7 +227,7 @@ export function ProductsPage() {
       isMountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStore?.id]);
+  }, [hydrated, currentStore?.id]);
 
   // Note: Auto-reload on tab switch disabled due to Supabase connection issues
   // Users can manually click the Refresh button if needed

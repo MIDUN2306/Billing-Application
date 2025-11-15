@@ -1,15 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useStoreStore } from '../../stores/storeStore';
 import toast from 'react-hot-toast';
 import { 
   Search, Plus, User, RotateCw, X, Tag, Package
-} from 'lucide-react';
+} from 'lucide-react'
 import { CustomerSelector } from './CustomerSelector';
 import { PaymentModalNew } from './PaymentModalNew';
 import { FloatingCartButton } from './FloatingCartButton';
 import { CartPanelNew } from './CartPanelNew';
-import { useLocation } from 'react-router-dom';
 
 interface Product {
   id: string;
@@ -33,8 +32,7 @@ interface CartItem extends Product {
 }
 
 export function POSPageNew() {
-  const { currentStore } = useStoreStore();
-  const location = useLocation();
+  const { currentStore, hydrated } = useStoreStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -44,8 +42,23 @@ export function POSPageNew() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [showCartSidebar, setShowCartSidebar] = useState(false);
+  
+  // Refs to prevent race conditions
+  const loadingRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const loadProducts = useCallback(async (isRefresh = false) => {
+    if (!currentStore?.id) {
+      return;
+    }
+
+    // Prevent multiple simultaneous loads
+    if (loadingRef.current && !isRefresh) {
+      return;
+    }
+
+    loadingRef.current = true;
+
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -105,6 +118,11 @@ export function POSPageNew() {
         };
       });
       
+      // Only update state if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setProducts(productsWithCategory);
       
       if (isRefresh) {
@@ -112,16 +130,38 @@ export function POSPageNew() {
         setRefreshing(false);
       }
     } catch (error: any) {
-      setRefreshing(false);
-      toast.error('Failed to load products');
+      console.error('Error loading products:', error);
+      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setRefreshing(false);
+        toast.error('Failed to load products');
+      }
+    } finally {
+      loadingRef.current = false;
     }
-  }, [currentStore]);
+  }, [currentStore?.id]);
 
+  // Load products when component mounts or store changes
   useEffect(() => {
-    if (currentStore) {
+    isMountedRef.current = true;
+    
+    // Wait for store to be hydrated before loading
+    if (hydrated && currentStore?.id) {
+      // CRITICAL: Reset loadingRef RIGHT BEFORE loading
+      // This ensures it's reset even if the effect runs multiple times
+      loadingRef.current = false;
+      console.log('[POS] Store hydrated, loading products for store:', currentStore.id);
       loadProducts();
+    } else if (hydrated && !currentStore?.id) {
+      console.log('[POS] Store hydrated but no currentStore available');
     }
-  }, [currentStore, location.pathname, loadProducts]);
+
+    return () => {
+      isMountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, currentStore?.id]); // Depend on both hydrated and currentStore?.id
 
   const handleRefresh = () => {
     loadProducts(true);

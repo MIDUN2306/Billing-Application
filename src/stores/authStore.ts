@@ -73,55 +73,43 @@ export const useAuthStore = create<AuthStore>()(
           }
 
           // Listen for auth changes
+          // Supabase automatically handles token refresh with autoRefreshToken: true
+          // This listener updates our store when auth state changes
           supabase.auth.onAuthStateChange(async (_event, session) => {
-            if (session?.user) {
-              const profile = await getUserProfile(session.user.id);
-              set({ 
-                user: session.user, 
-                profile,
-                lastProfileFetch: Date.now()
-              });
-            } else {
+            console.log('[AuthStore] Auth state changed:', _event);
+            
+            // Skip INITIAL_SESSION - it's just checking existing session
+            if (_event === 'INITIAL_SESSION') {
+              return;
+            }
+            
+            // Only handle actual sign out
+            if (_event === 'SIGNED_OUT') {
               set({ 
                 user: null, 
                 profile: null,
                 lastProfileFetch: null
               });
+              return;
+            }
+            
+            // For SIGNED_IN, only fetch profile if we don't have one yet
+            // This prevents unnecessary refetches during token refresh
+            if (_event === 'SIGNED_IN' && session?.user) {
+              const currentState = get();
+              if (!currentState.profile) {
+                const profile = await getUserProfile(session.user.id);
+                set({ 
+                  user: session.user, 
+                  profile,
+                  lastProfileFetch: Date.now()
+                });
+              } else {
+                // Just update the user session, keep existing profile
+                set({ user: session.user });
+              }
             }
           });
-
-          // Handle page visibility changes - refresh session when tab becomes visible
-          if (typeof document !== 'undefined') {
-            document.addEventListener('visibilitychange', async () => {
-              if (!document.hidden) {
-                // Tab became visible - check session validity
-                const { data: { session } } = await supabase.auth.getSession();
-                
-                if (session?.user) {
-                  // Session exists, refresh profile if needed
-                  const { lastProfileFetch } = get();
-                  const now = Date.now();
-                  const shouldRefresh = !lastProfileFetch || (now - lastProfileFetch) > PROFILE_CACHE_DURATION;
-                  
-                  if (shouldRefresh) {
-                    const freshProfile = await getUserProfile(session.user.id);
-                    set({ 
-                      user: session.user,
-                      profile: freshProfile,
-                      lastProfileFetch: now
-                    });
-                  }
-                } else {
-                  // No session - user might have been logged out
-                  set({ 
-                    user: null, 
-                    profile: null,
-                    lastProfileFetch: null
-                  });
-                }
-              }
-            });
-          }
         } catch (error) {
           console.error('Auth initialization error:', error);
           set({ 
